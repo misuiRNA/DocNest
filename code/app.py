@@ -103,7 +103,7 @@ def generate_qr_code(document_id, filename):
         view_url = "{}view/{}".format(request.host_url, document_id)
     except RuntimeError:
         # If outside request context (e.g., during startup), use a default URL
-        view_url = "http://localhost:5000/view/{}".format(document_id)
+        view_url = "http://localhost:5001/view/{}".format(document_id)
     
     qr = qrcode.QRCode(
         version=1,
@@ -192,7 +192,6 @@ def upload_file():
         return redirect(request.url)
 
 @app.route('/view/<int:document_id>')
-@login_required
 def view_document(document_id):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -250,12 +249,10 @@ def query_document():
         return redirect(url_for('query_page'))
 
 @app.route('/pdf/<filename>')
-@login_required
 def serve_pdf(filename):
     return send_from_directory('static/uploads', filename)
 
 @app.route('/qrcode/<int:document_id>')
-@login_required
 def get_qrcode(document_id):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -319,4 +316,4 @@ def delete_document(document_id):
 add_test_document()
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5001)
