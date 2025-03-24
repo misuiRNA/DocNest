@@ -22,7 +22,7 @@ except OSError:
         raise
 
 # Define database path
-DB_PATH = 'documents.db'
+DB_PATH = 'static/documents.db'
 
 # Database setup
 def init_db():
