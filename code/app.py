@@ -9,8 +9,17 @@ app = Flask(__name__)
 app.secret_key = 'your_secret_key'  # Change this to a random secret key
 
 # Ensure upload and QR code directories exist
-os.makedirs('static/uploads', exist_ok=True)
-os.makedirs('static/qrcodes', exist_ok=True)
+try:
+    os.makedirs('static/uploads')
+except OSError:
+    if not os.path.isdir('static/uploads'):
+        raise
+
+try:
+    os.makedirs('static/qrcodes')
+except OSError:
+    if not os.path.isdir('static/qrcodes'):
+        raise
 
 # Database setup
 def init_db():
@@ -33,12 +42,12 @@ init_db()
 
 # Generate a random 4-digit extraction code
 def generate_extraction_code():
-    return ''.join(random.choices(string.digits, k=4))
+    return ''.join(random.choice(string.digits) for _ in range(4))
 
 # Generate QR code for a document
 def generate_qr_code(document_id, filename):
     # Create QR code with the view URL
-    view_url = f"{request.host_url}view/{document_id}"
+    view_url = "{}view/{}".format(request.host_url, document_id)
     qr = qrcode.QRCode(
         version=1,
         error_correction=qrcode.constants.ERROR_CORRECT_L,
@@ -49,7 +58,7 @@ def generate_qr_code(document_id, filename):
     qr.make(fit=True)
     
     img = qr.make_image(fill_color="black", back_color="white")
-    qr_path = f"static/qrcodes/{filename.split('.')[0]}.png"
+    qr_path = "static/qrcodes/{}.png".format(filename.split('.')[0])
     img.save(qr_path)
     return qr_path
 
@@ -72,7 +81,7 @@ def upload_file():
     if file and file.filename.lower().endswith('.pdf'):
         # Generate a unique filename
         original_filename = file.filename
-        filename = f"{random.randint(10000, 99999)}_{original_filename}"
+        filename = "{}_{}".format(random.randint(10000, 99999), original_filename)
         file_path = os.path.join('static/uploads', filename)
         
         # Save the file
@@ -123,6 +132,17 @@ def view_document(document_id):
 @app.route('/query')
 def query_page():
     return render_template('query.html')
+
+@app.route('/list')
+def list_documents():
+    conn = sqlite3.connect('documents.db')
+    conn.row_factory = sqlite3.Row  # This enables column access by name
+    cursor = conn.cursor()
+    cursor.execute('SELECT id, original_filename, extraction_code, upload_date FROM documents ORDER BY upload_date DESC')
+    documents = cursor.fetchall()
+    conn.close()
+    
+    return render_template('list.html', documents=documents)
 
 @app.route('/query/document', methods=['POST'])
 def query_document():
