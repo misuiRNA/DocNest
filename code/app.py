@@ -47,17 +47,50 @@ def init_db():
     
     print(f"Database initialized at {os.path.abspath(DB_PATH)}")
 
-# Initialize database
-init_db()
-
 # Generate a random 4-digit extraction code
 def generate_extraction_code():
     return ''.join(random.choice(string.digits) for _ in range(4))
 
+# Initialize database
+init_db()
+
+# Add a test document if none exist
+def add_test_document():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('SELECT COUNT(*) FROM documents')
+    count = cursor.fetchone()[0]
+    
+    if count == 0:
+        # Add a test document
+        test_filename = "test_document.pdf"
+        filename = "{}_{}".format(random.randint(10000, 99999), test_filename)
+        extraction_code = generate_extraction_code()
+        
+        cursor.execute(
+            'INSERT INTO documents (filename, original_filename, extraction_code) VALUES (?, ?, ?)',
+            (filename, test_filename, extraction_code)
+        )
+        document_id = cursor.lastrowid
+        conn.commit()
+        
+        # Generate QR code for test document
+        generate_qr_code(document_id, filename)
+        
+        print(f"Added test document with ID: {document_id}")
+    
+    conn.close()
+
 # Generate QR code for a document
 def generate_qr_code(document_id, filename):
     # Create QR code with the view URL
-    view_url = "{}view/{}".format(request.host_url, document_id)
+    try:
+        # Try to use request.host_url if in a request context
+        view_url = "{}view/{}".format(request.host_url, document_id)
+    except RuntimeError:
+        # If outside request context (e.g., during startup), use a default URL
+        view_url = "http://localhost:5000/view/{}".format(document_id)
+    
     qr = qrcode.QRCode(
         version=1,
         error_correction=qrcode.constants.ERROR_CORRECT_L,
@@ -180,6 +213,30 @@ def query_document():
 @app.route('/pdf/<filename>')
 def serve_pdf(filename):
     return send_from_directory('static/uploads', filename)
+
+@app.route('/qrcode/<int:document_id>')
+def get_qrcode(document_id):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('SELECT filename FROM documents WHERE id = ?', (document_id,))
+    result = cursor.fetchone()
+    conn.close()
+    
+    if result:
+        filename = result[0]
+        # Generate QR code if it doesn't exist
+        qr_filename = "{}.png".format(filename.split('.')[0])
+        qr_path = os.path.join('static/qrcodes', qr_filename)
+        
+        if not os.path.exists(qr_path):
+            generate_qr_code(document_id, filename)
+        
+        return send_from_directory('static/qrcodes', qr_filename)
+    else:
+        abort(404)
+
+# Add test document after all functions are defined
+add_test_document()
 
 if __name__ == '__main__':
     app.run(debug=True)
