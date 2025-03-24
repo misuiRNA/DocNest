@@ -21,10 +21,18 @@ except OSError:
     if not os.path.isdir('static/qrcodes'):
         raise
 
+# Define database path
+DB_PATH = 'documents.db'
+
 # Database setup
 def init_db():
-    conn = sqlite3.connect('documents.db')
+    # SQLite will automatically create the database file if it doesn't exist
+    
+    # Connect to the database (this will create the file if it doesn't exist)
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+    
+    # Create the table if it doesn't exist
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS documents (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,6 +44,8 @@ def init_db():
     ''')
     conn.commit()
     conn.close()
+    
+    print(f"Database initialized at {os.path.abspath(DB_PATH)}")
 
 # Initialize database
 init_db()
@@ -91,7 +101,7 @@ def upload_file():
         extraction_code = generate_extraction_code()
         
         # Save to database
-        conn = sqlite3.connect('documents.db')
+        conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         cursor.execute(
             'INSERT INTO documents (filename, original_filename, extraction_code) VALUES (?, ?, ?)',
@@ -115,7 +125,7 @@ def upload_file():
 
 @app.route('/view/<int:document_id>')
 def view_document(document_id):
-    conn = sqlite3.connect('documents.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('SELECT filename, original_filename FROM documents WHERE id = ?', (document_id,))
     result = cursor.fetchone()
@@ -135,7 +145,7 @@ def query_page():
 
 @app.route('/list')
 def list_documents():
-    conn = sqlite3.connect('documents.db')
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row  # This enables column access by name
     cursor = conn.cursor()
     cursor.execute('SELECT id, original_filename, extraction_code, upload_date FROM documents ORDER BY upload_date DESC')
@@ -152,7 +162,7 @@ def query_document():
         flash('Please enter an extraction code')
         return redirect(url_for('query_page'))
     
-    conn = sqlite3.connect('documents.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('SELECT id, filename, original_filename FROM documents WHERE extraction_code = ?', (extraction_code,))
     result = cursor.fetchone()
