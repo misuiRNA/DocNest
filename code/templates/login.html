@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DocNest - 查询文档</title>
+    <title>DocNest - 登录</title>
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -28,22 +28,6 @@
         h1 {
             margin: 0;
         }
-        .nav {
-            display: flex;
-            justify-content: center;
-            margin-top: 10px;
-        }
-        .nav a {
-            color: white;
-            text-decoration: none;
-            margin: 0 15px;
-            padding: 5px 10px;
-            border-radius: 4px;
-            transition: background-color 0.3s;
-        }
-        .nav a:hover {
-            background-color: rgba(255, 255, 255, 0.2);
-        }
         .card {
             background-color: white;
             border-radius: 8px;
@@ -51,7 +35,7 @@
             padding: 30px;
             margin-bottom: 30px;
         }
-        .query-form {
+        .login-form {
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -69,11 +53,9 @@
         .form-input {
             width: 100%;
             padding: 12px;
-            font-size: 18px;
+            font-size: 16px;
             border: 2px solid #ddd;
             border-radius: 4px;
-            text-align: center;
-            letter-spacing: 5px;
             transition: border-color 0.3s;
         }
         .form-input:focus {
@@ -107,15 +89,6 @@
             border: 1px solid #f5c6cb;
             text-align: center;
         }
-        .instructions {
-            margin-top: 30px;
-            text-align: center;
-        }
-        .instructions i {
-            font-size: 48px;
-            color: #4285f4;
-            margin-bottom: 15px;
-        }
         footer {
             text-align: center;
             padding: 20px 0;
@@ -123,24 +96,20 @@
             font-size: 14px;
         }
     </style>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
 </head>
 <body>
     <header>
         <div class="container">
             <h1>DocNest</h1>
-            <div class="nav">
-                <a href="/login">管理员登录</a>
-            </div>
         </div>
     </header>
 
     <div class="container">
         <div class="card">
-            <h2>查询文档</h2>
-            <p>请输入4位数字提取码查看文档</p>
+            <h2>管理员登录</h2>
+            <p>请输入用户名和密码登录系统</p>
             
-            <form class="query-form" action="/query/document" method="post">
+            <form class="login-form" action="/login" method="post">
                 {% with messages = get_flashed_messages() %}
                     {% if messages %}
                         <div class="flash-messages">
@@ -152,19 +121,17 @@
                 {% endwith %}
                 
                 <div class="form-group">
-                    <label for="extraction_code" class="form-label">文件提取码</label>
-                    <input type="text" name="extraction_code" id="extraction_code" class="form-input" 
-                           maxlength="4" placeholder="输入4位数字" pattern="[0-9]{4}" required>
+                    <label for="username" class="form-label">用户名</label>
+                    <input type="text" name="username" id="username" class="form-input" required>
                 </div>
                 
-                <button type="submit" class="btn">查看文档</button>
+                <div class="form-group">
+                    <label for="password" class="form-label">密码</label>
+                    <input type="password" name="password" id="password" class="form-input" required>
+                </div>
+                
+                <button type="submit" class="btn">登录</button>
             </form>
-            
-            <div class="instructions">
-                <i class="fas fa-info-circle"></i>
-                <p>提取码是上传文档时系统生成的4位数字代码。</p>
-                <p>如果您没有提取码，请扫描文档对应的二维码访问。</p>
-            </div>
         </div>
     </div>
 
@@ -173,12 +140,5 @@
             <p>&copy; 2025 DocNest - 文档管理系统</p>
         </div>
     </footer>
-
-    <script>
-        // 限制只能输入数字
-        document.getElementById('extraction_code').addEventListener('input', function(e) {
-            this.value = this.value.replace(/[^0-9]/g, '');
-        });
-    </script>
 </body>
 </html>

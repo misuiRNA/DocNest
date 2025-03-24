@@ -3,10 +3,24 @@ import random
 import string
 import sqlite3
 import qrcode
-from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, abort
+import functools
+from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, abort, session
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'  # Change this to a random secret key
+
+# 默认用户名和密码
+DEFAULT_USERNAME = 'admin'
+DEFAULT_PASSWORD = 'admin'
+
+# 登录验证装饰器
+def login_required(view):
+    @functools.wraps(view)
+    def wrapped_view(**kwargs):
+        if not session.get('logged_in'):
+            return redirect(url_for('login'))
+        return view(**kwargs)
+    return wrapped_view
 
 # Ensure upload and QR code directories exist
 try:
@@ -105,11 +119,32 @@ def generate_qr_code(document_id, filename):
     img.save(qr_path)
     return qr_path
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        if username == DEFAULT_USERNAME and password == DEFAULT_PASSWORD:
+            session['logged_in'] = True
+            return redirect(url_for('index'))
+        else:
+            flash('用户名或密码错误')
+    
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.pop('logged_in', None)
+    return redirect(url_for('login'))
+
 @app.route('/')
+@login_required
 def index():
     return render_template('upload.html')
 
 @app.route('/upload', methods=['POST'])
+@login_required
 def upload_file():
     if 'file' not in request.files:
         flash('No file part')
@@ -157,6 +192,7 @@ def upload_file():
         return redirect(request.url)
 
 @app.route('/view/<int:document_id>')
+@login_required
 def view_document(document_id):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -173,10 +209,12 @@ def view_document(document_id):
         abort(404)
 
 @app.route('/query')
+# 注意：这个路由不需要登录验证
 def query_page():
     return render_template('query.html')
 
 @app.route('/list')
+@login_required
 def list_documents():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row  # This enables column access by name
@@ -188,6 +226,7 @@ def list_documents():
     return render_template('list.html', documents=documents)
 
 @app.route('/query/document', methods=['POST'])
+# 注意：这个路由不需要登录验证
 def query_document():
     extraction_code = request.form.get('extraction_code')
     
@@ -211,10 +250,12 @@ def query_document():
         return redirect(url_for('query_page'))
 
 @app.route('/pdf/<filename>')
+@login_required
 def serve_pdf(filename):
     return send_from_directory('static/uploads', filename)
 
 @app.route('/qrcode/<int:document_id>')
+@login_required
 def get_qrcode(document_id):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -236,6 +277,7 @@ def get_qrcode(document_id):
         abort(404)
 
 @app.route('/delete/<int:document_id>', methods=['POST'])
+@login_required
 def delete_document(document_id):
     try:
         # 连接数据库
