@@ -235,6 +235,44 @@ def get_qrcode(document_id):
     else:
         abort(404)
 
+@app.route('/delete/<int:document_id>', methods=['POST'])
+def delete_document(document_id):
+    try:
+        # 连接数据库
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        # 获取文档信息
+        cursor.execute('SELECT filename FROM documents WHERE id = ?', (document_id,))
+        result = cursor.fetchone()
+        
+        if not result:
+            conn.close()
+            return 'Document not found', 404
+        
+        filename = result[0]
+        
+        # 删除文件
+        file_path = os.path.join('static/uploads', filename)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        
+        # 删除二维码
+        qr_filename = "{}.png".format(filename.split('.')[0])
+        qr_path = os.path.join('static/qrcodes', qr_filename)
+        if os.path.exists(qr_path):
+            os.remove(qr_path)
+        
+        # 从数据库中删除记录
+        cursor.execute('DELETE FROM documents WHERE id = ?', (document_id,))
+        conn.commit()
+        conn.close()
+        
+        return '', 204  # 成功，无内容返回
+    except Exception as e:
+        print(f"Error deleting document: {e}")
+        return str(e), 500
+
 # Add test document after all functions are defined
 add_test_document()
 

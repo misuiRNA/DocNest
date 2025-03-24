@@ -204,6 +204,9 @@
                                 <a href="/qrcode/{{ doc.id }}" class="btn" title="下载二维码" download="document-{{ doc.id }}-qrcode.png">
                                     <i class="fas fa-download"></i>
                                 </a>
+                                <button class="btn delete-btn" style="background-color: #dc3545;" title="删除文档" data-id="{{ doc.id }}" data-filename="{{ doc.original_filename }}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
                             </td>
                         </tr>
                         {% endfor %}
@@ -225,6 +228,24 @@
         </div>
     </footer>
 
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteConfirmModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeDeleteModal()">&times;</span>
+            <h3>确认删除</h3>
+            <p>您确定要删除文档 <span id="deleteFileName" style="font-weight: bold;"></span> 吗？</p>
+            <p style="color: #dc3545;">此操作不可撤销！</p>
+            <div style="margin: 20px 0; display: flex; justify-content: center; gap: 15px;">
+                <button onclick="closeDeleteModal()" style="padding: 10px 15px; border-radius: 4px; border: none; background-color: #6c757d; color: white; cursor: pointer;">
+                    取消
+                </button>
+                <button id="confirmDeleteBtn" style="padding: 10px 15px; border-radius: 4px; border: none; background-color: #dc3545; color: white; cursor: pointer;">
+                    确认删除
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- QR Code Modal -->
     <div id="qrCodeModal" class="modal">
         <div class="modal-content">
@@ -241,6 +262,9 @@
     </div>
 
     <script>
+        // 当前要删除的文档ID
+        let currentDocumentId = null;
+        
         // 显示二维码弹窗
         function showQRCode(documentId) {
             const modal = document.getElementById('qrCodeModal');
@@ -259,17 +283,86 @@
             modal.style.display = 'block';
         }
         
-        // 关闭弹窗
+        // 关闭二维码弹窗
         function closeModal() {
             const modal = document.getElementById('qrCodeModal');
             modal.style.display = 'none';
         }
         
+        // 为所有删除按钮添加点击事件
+        document.addEventListener('DOMContentLoaded', function() {
+            const deleteButtons = document.querySelectorAll('.delete-btn');
+            deleteButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const documentId = this.getAttribute('data-id');
+                    const fileName = this.getAttribute('data-filename');
+                    showDeleteConfirm(documentId, fileName);
+                });
+            });
+        });
+        
+        // 显示删除确认弹窗
+        function showDeleteConfirm(documentId, fileName) {
+            currentDocumentId = documentId;
+            const modal = document.getElementById('deleteConfirmModal');
+            const fileNameSpan = document.getElementById('deleteFileName');
+            const confirmBtn = document.getElementById('confirmDeleteBtn');
+            
+            // 设置文件名
+            fileNameSpan.textContent = fileName;
+            
+            // 设置确认按钮点击事件
+            confirmBtn.onclick = function() {
+                deleteDocument(currentDocumentId);
+            };
+            
+            // 显示弹窗
+            modal.style.display = 'block';
+        }
+        
+        // 关闭删除确认弹窗
+        function closeDeleteModal() {
+            const modal = document.getElementById('deleteConfirmModal');
+            modal.style.display = 'none';
+        }
+        
+        // 删除文档
+        function deleteDocument(documentId) {
+            // 发送删除请求
+            fetch(`/delete/${documentId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    // 删除成功，刷新页面
+                    window.location.reload();
+                } else {
+                    // 删除失败，显示错误信息
+                    alert('删除文档失败，请稍后重试');
+                    closeDeleteModal();
+                }
+            })
+            .catch(error => {
+                console.error('删除文档出错:', error);
+                alert('删除文档出错，请稍后重试');
+                closeDeleteModal();
+            });
+        }
+        
         // 点击弹窗外部关闭弹窗
         window.onclick = function(event) {
-            const modal = document.getElementById('qrCodeModal');
-            if (event.target == modal) {
-                modal.style.display = 'none';
+            const qrModal = document.getElementById('qrCodeModal');
+            const deleteModal = document.getElementById('deleteConfirmModal');
+            
+            if (event.target == qrModal) {
+                qrModal.style.display = 'none';
+            }
+            
+            if (event.target == deleteModal) {
+                deleteModal.style.display = 'none';
             }
         }
     </script>
