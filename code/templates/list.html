@@ -167,6 +167,7 @@
                 <a href="/">上传文档</a>
                 <a href="/list">文件列表</a>
                 <a href="/query">查询文档</a>
+                <a href="/users">用户管理</a>
                 <a href="/logout">退出登录</a>
             </div>
         </div>
@@ -263,22 +264,22 @@
     </div>
 
     <script>
-        // 当前要删除的文档ID
-        let currentDocumentId = null;
+        // 全局变量
+        var currentDocumentId = null;
         
         // 显示二维码弹窗
         function showQRCode(documentId) {
-            const modal = document.getElementById('qrCodeModal');
-            const qrCodeImage = document.getElementById('qrCodeImage');
-            const downloadLink = document.getElementById('downloadQRCode');
+            var modal = document.getElementById('qrCodeModal');
+            var qrCodeImage = document.getElementById('qrCodeImage');
+            var downloadLink = document.getElementById('downloadQRCode');
             
             // 设置二维码图片源
-            const qrCodeUrl = `/qrcode/${documentId}`;
+            var qrCodeUrl = '/qrcode/' + documentId;
             qrCodeImage.src = qrCodeUrl;
             
             // 设置下载链接
             downloadLink.href = qrCodeUrl;
-            downloadLink.setAttribute('download', `document-${documentId}-qrcode.png`);
+            downloadLink.setAttribute('download', 'document-' + documentId + '-qrcode.png');
             
             // 显示弹窗
             modal.style.display = 'block';
@@ -286,28 +287,16 @@
         
         // 关闭二维码弹窗
         function closeModal() {
-            const modal = document.getElementById('qrCodeModal');
+            var modal = document.getElementById('qrCodeModal');
             modal.style.display = 'none';
         }
-        
-        // 为所有删除按钮添加点击事件
-        document.addEventListener('DOMContentLoaded', function() {
-            const deleteButtons = document.querySelectorAll('.delete-btn');
-            deleteButtons.forEach(button => {
-                button.addEventListener('click', function() {
-                    const documentId = this.getAttribute('data-id');
-                    const fileName = this.getAttribute('data-filename');
-                    showDeleteConfirm(documentId, fileName);
-                });
-            });
-        });
         
         // 显示删除确认弹窗
         function showDeleteConfirm(documentId, fileName) {
             currentDocumentId = documentId;
-            const modal = document.getElementById('deleteConfirmModal');
-            const fileNameSpan = document.getElementById('deleteFileName');
-            const confirmBtn = document.getElementById('confirmDeleteBtn');
+            var modal = document.getElementById('deleteConfirmModal');
+            var fileNameSpan = document.getElementById('deleteFileName');
+            var confirmBtn = document.getElementById('confirmDeleteBtn');
             
             // 设置文件名
             fileNameSpan.textContent = fileName;
@@ -323,20 +312,20 @@
         
         // 关闭删除确认弹窗
         function closeDeleteModal() {
-            const modal = document.getElementById('deleteConfirmModal');
+            var modal = document.getElementById('deleteConfirmModal');
             modal.style.display = 'none';
         }
         
         // 删除文档
         function deleteDocument(documentId) {
             // 发送删除请求
-            fetch(`/delete/${documentId}`, {
+            fetch('/delete/' + documentId, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 }
             })
-            .then(response => {
+            .then(function(response) {
                 if (response.ok) {
                     // 删除成功，刷新页面
                     window.location.reload();
@@ -346,7 +335,7 @@
                     closeDeleteModal();
                 }
             })
-            .catch(error => {
+            .catch(function(error) {
                 console.error('删除文档出错:', error);
                 alert('删除文档出错，请稍后重试');
                 closeDeleteModal();
@@ -355,8 +344,8 @@
         
         // 点击弹窗外部关闭弹窗
         window.onclick = function(event) {
-            const qrModal = document.getElementById('qrCodeModal');
-            const deleteModal = document.getElementById('deleteConfirmModal');
+            var qrModal = document.getElementById('qrCodeModal');
+            var deleteModal = document.getElementById('deleteConfirmModal');
             
             if (event.target == qrModal) {
                 qrModal.style.display = 'none';
@@ -365,7 +354,19 @@
             if (event.target == deleteModal) {
                 deleteModal.style.display = 'none';
             }
-        }
+        };
+        
+        // 为所有删除按钮添加点击事件
+        document.addEventListener('DOMContentLoaded', function() {
+            var deleteButtons = document.querySelectorAll('.delete-btn');
+            for (var i = 0; i < deleteButtons.length; i++) {
+                deleteButtons[i].addEventListener('click', function() {
+                    var documentId = this.getAttribute('data-id');
+                    var fileName = this.getAttribute('data-filename');
+                    showDeleteConfirm(documentId, fileName);
+                });
+            }
+        });
     </script>
 </body>
 </html>

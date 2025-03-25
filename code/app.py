@@ -23,6 +23,17 @@ def login_required(view):
         return view(**kwargs)
     return wrapped_view
 
+# 管理员验证装饰器
+def admin_required(view):
+    @functools.wraps(view)
+    def wrapped_view(**kwargs):
+        # if not session.get('logged_in') or session.get('username') != DEFAULT_USERNAME:
+        if not session.get('logged_in'):
+            flash('需要管理员权限')
+            return redirect(url_for('index'))
+        return view(**kwargs)
+    return wrapped_view
+
 # Ensure upload and QR code directories exist
 try:
     os.makedirs('static/uploads')
@@ -47,7 +58,7 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Create the table if it doesn't exist
+    # Create the documents table if it doesn't exist
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS documents (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -57,6 +68,26 @@ def init_db():
         upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     ''')
+    
+    # Create the users table if it doesn't exist
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL UNIQUE,
+        password TEXT NOT NULL,
+        created_by TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
+    
+    # Check if admin user exists, if not create it
+    cursor.execute('SELECT COUNT(*) FROM users WHERE username = ?', (DEFAULT_USERNAME,))
+    if cursor.fetchone()[0] == 0:
+        cursor.execute(
+            'INSERT INTO users (username, password, created_by) VALUES (?, ?, ?)',
+            (DEFAULT_USERNAME, DEFAULT_PASSWORD, 'system')
+        )
+    
     conn.commit()
     conn.close()
     
@@ -126,8 +157,16 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password')
         
-        if username == DEFAULT_USERNAME and password == DEFAULT_PASSWORD:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM users WHERE username = ? AND password = ?', (username, password))
+        user = cursor.fetchone()
+        conn.close()
+        
+        if user:
             session['logged_in'] = True
+            session['username'] = username
+            session['user_id'] = user[0]
             return redirect(url_for('index'))
         else:
             flash('用户名或密码错误')
@@ -137,7 +176,147 @@ def login():
 @app.route('/logout')
 def logout():
     session.pop('logged_in', None)
+    session.pop('username', None)
+    session.pop('user_id', None)
     return redirect(url_for('login'))
+
+@app.route('/users')
+@login_required
+@admin_required
+def list_users():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute('SELECT id, username, created_by, created_at FROM users ORDER BY created_at DESC')
+    users = cursor.fetchall()
+    conn.close()
+    
+    return render_template('users.html', users=users)
+
+@app.route('/users/add', methods=['GET', 'POST'])
+@login_required
+def add_user():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        if not username or not password:
+            flash('用户名和密码不能为空')
+            return redirect(url_for('add_user'))
+        
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        # 检查用户名是否已存在
+        cursor.execute('SELECT COUNT(*) FROM users WHERE username = ?', (username,))
+        if cursor.fetchone()[0] > 0:
+            conn.close()
+            flash('用户名已存在')
+            return redirect(url_for('add_user'))
+        
+        try:
+            cursor.execute(
+                'INSERT INTO users (username, password, created_by) VALUES (?, ?, ?)',
+                (username, password, session.get('username'))
+            )
+            conn.commit()
+            flash('用户添加成功')
+            return redirect(url_for('list_users'))
+        except Exception as e:
+            conn.rollback()
+            flash(f'添加用户失败: {str(e)}')
+        finally:
+            conn.close()
+    
+    return render_template('add_user.html')
+
+@app.route('/users/edit/<int:user_id>', methods=['GET', 'POST'])
+@login_required
+def edit_user(user_id):
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    # 获取用户信息
+    cursor.execute('SELECT * FROM users WHERE id = ?', (user_id,))
+    user = cursor.fetchone()
+    
+    # 检查是否有权限编辑
+    if not user or (user['username'] != session.get('username') and session.get('username') != DEFAULT_USERNAME):
+        conn.close()
+        flash('没有权限编辑此用户')
+        return redirect(url_for('list_users'))
+    
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        if not username or not password:
+            flash('用户名和密码不能为空')
+            return redirect(url_for('edit_user', user_id=user_id))
+        
+        # 如果修改用户名，检查新用户名是否已存在
+        if username != user['username']:
+            cursor.execute('SELECT COUNT(*) FROM users WHERE username = ? AND id != ?', (username, user_id))
+            if cursor.fetchone()[0] > 0:
+                conn.close()
+                flash('用户名已存在')
+                return redirect(url_for('edit_user', user_id=user_id))
+        
+        try:
+            cursor.execute(
+                'UPDATE users SET username = ?, password = ? WHERE id = ?',
+                (username, password, user_id)
+            )
+            conn.commit()
+            flash('用户信息更新成功')
+            
+            # 如果修改的是当前用户，更新session
+            if user_id == session.get('user_id'):
+                session['username'] = username
+                
+            return redirect(url_for('list_users'))
+        except Exception as e:
+            conn.rollback()
+            flash(f'更新用户失败: {str(e)}')
+        finally:
+            conn.close()
+    
+    return render_template('edit_user.html', user=user)
+
+@app.route('/users/delete/<int:user_id>', methods=['POST'])
+@login_required
+@admin_required
+def delete_user(user_id):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    # 获取用户信息
+    cursor.execute('SELECT username FROM users WHERE id = ?', (user_id,))
+    user = cursor.fetchone()
+    
+    if not user:
+        conn.close()
+        flash('用户不存在')
+        return redirect(url_for('list_users'))
+    
+    # 不允许删除默认管理员用户
+    if user[0] == DEFAULT_USERNAME:
+        conn.close()
+        flash('不允许删除默认管理员用户')
+        return redirect(url_for('list_users'))
+    
+    try:
+        cursor.execute('DELETE FROM users WHERE id = ?', (user_id,))
+        conn.commit()
+        flash('用户删除成功')
+    except Exception as e:
+        conn.rollback()
+        flash(f'删除用户失败: {str(e)}')
+    finally:
+        conn.close()
+    
+    return redirect(url_for('list_users'))
 
 @app.route('/')
 @login_required

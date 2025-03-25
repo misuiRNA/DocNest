@@ -131,6 +131,12 @@
             <h1>DocNest</h1>
             <div class="nav">
                 <a href="/login">管理员登录</a>
+                {% if session.get('logged_in') %}
+                <a href="/">上传文档</a>
+                <a href="/list">文件列表</a>
+                <a href="/users">用户管理</a>
+                <a href="/logout">退出登录</a>
+                {% endif %}
             </div>
         </div>
     </header>
