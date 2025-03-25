@@ -1,4 +1,5 @@
 import os
+import sys
 import random
 import string
 import sqlite3
@@ -316,4 +317,11 @@ def delete_document(document_id):
 add_test_document()
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=5001)
+    serverHost = 'localhost'
+    serverPort = 5000
+    if len(sys.argv) >= 2:
+        serverHost = sys.argv[1]
+    if len(sys.argv) >= 3:
+        serverPort = int(sys.argv[2])
+
+    app.run(host=serverHost, port=serverPort)
