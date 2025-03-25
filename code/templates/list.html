@@ -182,7 +182,7 @@
                 <table class="file-list">
                     <thead>
                         <tr>
-                            <th>序号</th>
+                            <th>文件编号</th>
                             <th>文件名</th>
                             <th>提取码</th>
                             <th>上传日期</th>
@@ -192,7 +192,7 @@
                     <tbody>
                         {% for doc in documents %}
                         <tr>
-                            <td>{{ loop.index }}</td>
+                            <td>{{ doc.file_number }}</td>
                             <td>{{ doc.original_filename }}</td>
                             <td class="extraction-code">{{ doc.extraction_code }}</td>
                             <td>{{ doc.upload_date }}</td>

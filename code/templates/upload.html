@@ -157,6 +157,11 @@
             <p>上传您的PDF文档，系统将生成二维码和提取码，方便您随时查看和分享。</p>
             
             <form class="upload-form" action="/upload" method="post" enctype="multipart/form-data">
+                <div style="width: 100%; margin-bottom: 20px;">
+                    <label for="file_number" style="display: block; margin-bottom: 5px;">文件编号 (仅允许字母和数字):</label>
+                    <input type="text" name="file_number" id="file_number" pattern="[A-Za-z0-9]+" required 
+                           style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 16px;">
+                </div>
                 <div class="file-input-container">
                     <label for="file" class="file-input-label">
                         <i class="fas fa-file-pdf"></i>

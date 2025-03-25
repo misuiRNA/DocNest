@@ -144,7 +144,7 @@
     <div class="container">
         <div class="card">
             <h2>查询文档</h2>
-            <p>请输入4位数字提取码查看文档</p>
+            <p>请输入文件编号和4位数字提取码查看文档</p>
             
             <form class="query-form" action="/query/document" method="post">
                 {% with messages = get_flashed_messages() %}
@@ -158,6 +158,12 @@
                 {% endwith %}
                 
                 <div class="form-group">
+                    <label for="file_number" class="form-label">文件编号</label>
+                    <input type="text" name="file_number" id="file_number" class="form-input" 
+                           placeholder="输入文件编号" required>
+                </div>
+                
+                <div class="form-group">
                     <label for="extraction_code" class="form-label">文件提取码</label>
                     <input type="text" name="extraction_code" id="extraction_code" class="form-input" 
                            maxlength="4" placeholder="输入4位数字" pattern="[0-9]{4}" required>
@@ -168,8 +174,9 @@
             
             <div class="instructions">
                 <i class="fas fa-info-circle"></i>
+                <p>文件编号是上传文档时提供的唯一标识。</p>
                 <p>提取码是上传文档时系统生成的4位数字代码。</p>
-                <p>如果您没有提取码，请扫描文档对应的二维码访问。</p>
+                <p>如果您没有文件编号和提取码，请扫描文档对应的二维码访问。</p>
             </div>
         </div>
     </div>

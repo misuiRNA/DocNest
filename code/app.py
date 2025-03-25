@@ -62,6 +62,7 @@ def init_db():
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS documents (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        file_number TEXT NOT NULL UNIQUE,
         filename TEXT NOT NULL,
         original_filename TEXT NOT NULL,
         extraction_code TEXT NOT NULL,
@@ -112,10 +113,11 @@ def add_test_document():
         test_filename = "test_document.pdf"
         filename = "{}_{}".format(random.randint(10000, 99999), test_filename)
         extraction_code = generate_extraction_code()
+        file_number = "TEST123"
         
         cursor.execute(
-            'INSERT INTO documents (filename, original_filename, extraction_code) VALUES (?, ?, ?)',
-            (filename, test_filename, extraction_code)
+            'INSERT INTO documents (file_number, filename, original_filename, extraction_code) VALUES (?, ?, ?, ?)',
+            (file_number, filename, test_filename, extraction_code)
         )
         document_id = cursor.lastrowid
         conn.commit()
@@ -331,9 +333,19 @@ def upload_file():
         return redirect(request.url)
     
     file = request.files['file']
+    file_number = request.form.get('file_number', '').strip()
     
     if file.filename == '':
         flash('No selected file')
+        return redirect(request.url)
+    
+    if not file_number:
+        flash('File number is required')
+        return redirect(request.url)
+    
+    # Validate file number (only letters and numbers allowed)
+    if not file_number.isalnum():
+        flash('File number can only contain letters and numbers')
         return redirect(request.url)
     
     if file and file.filename.lower().endswith('.pdf'):
@@ -351,13 +363,33 @@ def upload_file():
         # Save to database
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
-        cursor.execute(
-            'INSERT INTO documents (filename, original_filename, extraction_code) VALUES (?, ?, ?)',
-            (filename, original_filename, extraction_code)
-        )
-        document_id = cursor.lastrowid
-        conn.commit()
-        conn.close()
+        
+        # Check if file number already exists
+        cursor.execute('SELECT COUNT(*) FROM documents WHERE file_number = ?', (file_number,))
+        if cursor.fetchone()[0] > 0:
+            conn.close()
+            # Remove the uploaded file
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            flash('File number already exists. Please use a different file number.')
+            return redirect("/")
+        
+        try:
+            cursor.execute(
+                'INSERT INTO documents (file_number, filename, original_filename, extraction_code) VALUES (?, ?, ?, ?)',
+                (file_number, filename, original_filename, extraction_code)
+            )
+            document_id = cursor.lastrowid
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            conn.rollback()
+            conn.close()
+            # Remove the uploaded file
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            flash(f'Error uploading file: {str(e)}')
+            return redirect(request.url)
         
         # Generate QR code
         qr_path = generate_qr_code(document_id, filename)
@@ -398,7 +430,7 @@ def list_documents():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row  # This enables column access by name
     cursor = conn.cursor()
-    cursor.execute('SELECT id, original_filename, extraction_code, upload_date FROM documents ORDER BY upload_date DESC')
+    cursor.execute('SELECT id, file_number, original_filename, extraction_code, upload_date FROM documents ORDER BY upload_date DESC')
     documents = cursor.fetchall()
     conn.close()
     
@@ -407,15 +439,21 @@ def list_documents():
 @app.route('/query/document', methods=['POST'])
 # 注意：这个路由不需要登录验证
 def query_document():
-    extraction_code = request.form.get('extraction_code')
+    file_number = request.form.get('file_number', '').strip()
+    extraction_code = request.form.get('extraction_code', '').strip()
+    
+    if not file_number:
+        flash('请输入文件编号')
+        return redirect(url_for('query_page'))
     
     if not extraction_code:
-        flash('Please enter an extraction code')
+        flash('请输入提取码')
         return redirect(url_for('query_page'))
     
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.execute('SELECT id, filename, original_filename FROM documents WHERE extraction_code = ?', (extraction_code,))
+    cursor.execute('SELECT id, filename, original_filename FROM documents WHERE file_number = ? AND extraction_code = ?', 
+                  (file_number, extraction_code))
     result = cursor.fetchone()
     conn.close()
     
@@ -425,7 +463,7 @@ def query_document():
                               filename=filename, 
                               original_filename=original_filename)
     else:
-        flash('Invalid extraction code')
+        flash('文件编号或提取码无效')
         return redirect(url_for('query_page'))
 
 @app.route('/pdf/<filename>')
