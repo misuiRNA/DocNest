@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import os
 import sys
 import random
@@ -72,7 +75,7 @@ def init_db():
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS documents (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        file_number TEXT NOT NULL UNIQUE,
+        file_number TEXT NOT NULL,
         filename TEXT NOT NULL,
         original_filename TEXT NOT NULL,
         extraction_code TEXT NOT NULL,
@@ -82,6 +85,20 @@ def init_db():
         FOREIGN KEY (group_id) REFERENCES user_groups (id),
         FOREIGN KEY (uploaded_by) REFERENCES users (id)
     )
+    ''')
+    
+    # 创建组合索引，确保同一用户组内文件编号唯一
+    cursor.execute('''
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_group_file_number 
+    ON documents (file_number, group_id)
+    WHERE group_id IS NOT NULL
+    ''')
+    
+    # 创建索引，确保没有组的用户上传的文件编号唯一
+    cursor.execute('''
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_user_file_number 
+    ON documents (file_number, uploaded_by)
+    WHERE group_id IS NULL
     ''')
     
     # Create the users table if it doesn't exist
@@ -108,14 +125,81 @@ def init_db():
     conn.commit()
     conn.close()
     
-    print(f"Database initialized at {os.path.abspath(DB_PATH)}")
+    print("Database initialized at {}".format(os.path.abspath(DB_PATH)))
 
 # Generate a random 4-digit extraction code
 def generate_extraction_code():
     return ''.join(random.choice(string.digits) for _ in range(4))
 
+# 数据库迁移函数
+def migrate_db():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    # 检查是否需要迁移
+    cursor.execute("PRAGMA table_info(documents)")
+    columns = cursor.fetchall()
+    
+    # 检查file_number列是否有UNIQUE约束
+    needs_migration = False
+    for col in columns:
+        if col[1] == 'file_number' and 'UNIQUE' in str(col[5]):
+            needs_migration = True
+            break
+    
+    if needs_migration:
+        print("正在迁移数据库结构...")
+        
+        # 创建新表结构
+        cursor.execute('''
+        CREATE TABLE documents_new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            file_number TEXT NOT NULL,
+            filename TEXT NOT NULL,
+            original_filename TEXT NOT NULL,
+            extraction_code TEXT NOT NULL,
+            group_id INTEGER,
+            uploaded_by INTEGER,
+            upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (group_id) REFERENCES user_groups (id),
+            FOREIGN KEY (uploaded_by) REFERENCES users (id)
+        )
+        ''')
+        
+        # 复制数据
+        cursor.execute('''
+        INSERT INTO documents_new 
+        SELECT id, file_number, filename, original_filename, extraction_code, group_id, uploaded_by, upload_date 
+        FROM documents
+        ''')
+        
+        # 删除旧表
+        cursor.execute('DROP TABLE documents')
+        
+        # 重命名新表
+        cursor.execute('ALTER TABLE documents_new RENAME TO documents')
+        
+        # 创建组合索引
+        cursor.execute('''
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_group_file_number 
+        ON documents (file_number, group_id)
+        WHERE group_id IS NOT NULL
+        ''')
+        
+        cursor.execute('''
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_user_file_number 
+        ON documents (file_number, uploaded_by)
+        WHERE group_id IS NULL
+        ''')
+        
+        conn.commit()
+        print("数据库迁移完成")
+    
+    conn.close()
+
 # Initialize database
 init_db()
+migrate_db()
 
 # Add a test document if none exist
 def add_test_document():
@@ -141,7 +225,7 @@ def add_test_document():
         # Generate QR code for test document
         generate_qr_code(document_id, filename)
         
-        print(f"Added test document with ID: {document_id}")
+        print("Added test document with ID: {}".format(document_id))
     
     conn.close()
 
@@ -285,7 +369,7 @@ def add_group():
             return redirect(url_for('list_groups'))
         except Exception as e:
             conn.rollback()
-            flash(f'添加用户组失败: {str(e)}')
+            flash('添加用户组失败: {}'.format(str(e)))
         finally:
             conn.close()
     
@@ -322,7 +406,7 @@ def delete_group(group_id):
         flash('用户组删除成功')
     except Exception as e:
         conn.rollback()
-        flash(f'删除用户组失败: {str(e)}')
+        flash('删除用户组失败: {}'.format(str(e)))
     finally:
         conn.close()
     
@@ -466,7 +550,7 @@ def add_user():
             return redirect(url_for('list_users'))
         except Exception as e:
             conn.rollback()
-            flash(f'添加用户失败: {str(e)}')
+            flash('添加用户失败: {}'.format(str(e)))
         finally:
             conn.close()
     
@@ -559,7 +643,7 @@ def edit_user(user_id):
             return redirect(url_for('list_users'))
         except Exception as e:
             conn.rollback()
-            flash(f'更新用户失败: {str(e)}')
+            flash('更新用户失败: {}'.format(str(e)))
         finally:
             conn.close()
     
@@ -601,7 +685,7 @@ def delete_user(user_id):
             flash('用户删除成功')
         except Exception as e:
             conn.rollback()
-            flash(f'删除用户失败: {str(e)}')
+            flash('删除用户失败: {}'.format(str(e)))
         finally:
             conn.close()
         
@@ -632,7 +716,7 @@ def delete_user(user_id):
         flash('用户删除成功')
     except Exception as e:
         conn.rollback()
-        flash(f'删除用户失败: {str(e)}')
+        flash('删除用户失败: {}'.format(str(e)))
     finally:
         conn.close()
     
@@ -682,20 +766,27 @@ def upload_file():
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         
-        # Check if file number already exists
-        cursor.execute('SELECT COUNT(*) FROM documents WHERE file_number = ?', (file_number,))
+        # 获取用户所属组
+        group_id = get_user_group_id()
+        
+        # 检查文件编号是否在同一用户组内已存在
+        if group_id:
+            # 如果用户属于某个组，检查同组内是否有相同编号
+            cursor.execute('SELECT COUNT(*) FROM documents WHERE file_number = ? AND group_id = ?', (file_number, group_id))
+        else:
+            # 如果用户不属于任何组，检查该用户上传的文档中是否有相同编号
+            cursor.execute('SELECT COUNT(*) FROM documents WHERE file_number = ? AND uploaded_by = ? AND group_id IS NULL', 
+                          (file_number, session.get('user_id')))
+        
         if cursor.fetchone()[0] > 0:
             conn.close()
             # Remove the uploaded file
             if os.path.exists(file_path):
                 os.remove(file_path)
-            flash('File number already exists. Please use a different file number.')
+            flash('在当前用户组内，文件编号已存在。请使用不同的文件编号。')
             return redirect("/")
         
         try:
-            # 获取用户所属组
-            group_id = get_user_group_id()
-            
             # 插入文档记录，包含组ID和上传者ID
             cursor.execute(
                 'INSERT INTO documents (file_number, filename, original_filename, extraction_code, group_id, uploaded_by) VALUES (?, ?, ?, ?, ?, ?)',
@@ -710,7 +801,7 @@ def upload_file():
             # Remove the uploaded file
             if os.path.exists(file_path):
                 os.remove(file_path)
-            flash(f'Error uploading file: {str(e)}')
+            flash('Error uploading file: {}'.format(str(e)))
             return redirect(request.url)
         
         # Generate QR code
@@ -874,7 +965,7 @@ def delete_document(document_id):
         
         return '', 204  # 成功，无内容返回
     except Exception as e:
-        print(f"Error deleting document: {e}")
+        print("Error deleting document: {}".format(e))
         return str(e), 500
 
 @app.route('/list')
