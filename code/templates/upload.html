@@ -1,159 +1,58 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DocNest - 文档上传</title>
-    <style>
-        body {
-            font-family: 'Arial', sans-serif;
-            line-height: 1.6;
-            margin: 0;
-            padding: 0;
-            background-color: #f5f5f5;
-            color: #333;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        header {
-            background-color: #4285f4;
-            color: white;
-            padding: 20px 0;
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        h1 {
-            margin: 0;
-        }
-        .nav {
-            display: flex;
-            justify-content: center;
-            margin-top: 10px;
-        }
-        .nav a {
-            color: white;
-            text-decoration: none;
-            margin: 0 15px;
-            padding: 5px 10px;
-            border-radius: 4px;
-            transition: background-color 0.3s;
-        }
-        .nav a:hover {
-            background-color: rgba(255, 255, 255, 0.2);
-        }
-        .card {
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            padding: 30px;
-            margin-bottom: 30px;
-        }
-        .upload-form {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .file-input-container {
-            position: relative;
-            margin-bottom: 20px;
-            width: 100%;
-        }
-        .file-input-label {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            border: 2px dashed #ccc;
-            border-radius: 8px;
-            padding: 40px 20px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        .file-input-label:hover {
-            border-color: #4285f4;
-            background-color: rgba(66, 133, 244, 0.05);
-        }
-        .file-input-label i {
-            font-size: 48px;
-            color: #4285f4;
-            margin-bottom: 15px;
-        }
-        .file-input {
-            position: absolute;
-            width: 0.1px;
-            height: 0.1px;
-            opacity: 0;
-            overflow: hidden;
-            z-index: -1;
-        }
-        .file-name {
-            margin-top: 10px;
-            font-size: 14px;
-        }
-        .btn {
-            background-color: #4285f4;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: background-color 0.3s;
-        }
-        .btn:hover {
-            background-color: #3367d6;
-        }
-        .flash-messages {
-            margin-bottom: 20px;
-        }
-        .flash-message {
-            padding: 10px 15px;
-            border-radius: 4px;
-            margin-bottom: 10px;
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-        footer {
-            text-align: center;
-            padding: 20px 0;
-            color: #666;
-            font-size: 14px;
-        }
-    </style>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
-</head>
-<body>
-    <header>
-        <div class="container">
-            <h1>DocNest</h1>
-            <div class="nav">
-                <a href="/upload">上传文档</a>
-                <a href="/list">文件列表</a>
-                <a href="/users">用户管理</a>
-                <a href="/groups">用户组管理</a>
-                <a href="/logout">退出登录</a>
-                <a href="/query">查询文档</a>
-            </div>
-        </div>
-    </header>
+{% extends "base.html" %}
 
-    <div class="container">
-        {% with messages = get_flashed_messages() %}
-            {% if messages %}
-                <div class="flash-messages">
-                    {% for message in messages %}
-                        <div class="flash-message">{{ message }}</div>
-                    {% endfor %}
-                </div>
-            {% endif %}
-        {% endwith %}
+{% block title %}DocNest - 文档上传{% endblock %}
 
-        <div class="card">
+{% block additional_styles %}
+<style>
+    .upload-form {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    .file-input-container {
+        position: relative;
+        margin-bottom: 20px;
+        width: 100%;
+    }
+    .file-input-label {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        border: 2px dashed #ccc;
+        border-radius: 8px;
+        padding: 40px 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    .file-input-label:hover {
+        border-color: #4285f4;
+        background-color: rgba(66, 133, 244, 0.05);
+    }
+    .file-input-label i {
+        font-size: 48px;
+        color: #4285f4;
+        margin-bottom: 15px;
+    }
+    .file-input {
+        position: absolute;
+        width: 0.1px;
+        height: 0.1px;
+        opacity: 0;
+        overflow: hidden;
+        z-index: -1;
+    }
+    .file-name {
+        margin-top: 10px;
+        font-size: 14px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="card">
             <h2>上传PDF文档</h2>
             <p>上传您的PDF文档，系统将生成二维码和提取码，方便您随时查看和分享。</p>
             
@@ -173,27 +72,21 @@
                 </div>
                 <button type="submit" class="btn">上传文档</button>
             </form>
-        </div>
+</div>
 
-        <div class="card">
-            <h2>使用说明</h2>
-            <p><strong>1. 上传文档：</strong> 选择您要上传的PDF文档，点击"上传文档"按钮。</p>
-            <p><strong>2. 获取二维码和提取码：</strong> 上传成功后，系统会生成二维码和4位数字提取码。</p>
-            <p><strong>3. 查看文档：</strong> 您可以通过扫描二维码或在查询页面输入提取码来查看文档。</p>
-        </div>
-    </div>
+<div class="card">
+    <h2>使用说明</h2>
+    <p><strong>1. 上传文档：</strong> 选择您要上传的PDF文档，点击"上传文档"按钮。</p>
+    <p><strong>2. 获取二维码和提取码：</strong> 上传成功后，系统会生成二维码和4位数字提取码。</p>
+    <p><strong>3. 查看文档：</strong> 您可以通过扫描二维码或在查询页面输入提取码来查看文档。</p>
+</div>
+{% endblock %}
 
-    <footer>
-        <div class="container">
-            <p>&copy; 2025 DocNest - 文档管理系统</p>
-        </div>
-    </footer>
-
-    <script>
-        document.getElementById('file').addEventListener('change', function(e) {
-            const fileName = e.target.files[0] ? e.target.files[0].name : '';
-            document.getElementById('file-name').textContent = fileName;
-        });
-    </script>
-</body>
-</html>
+{% block additional_scripts %}
+<script>
+    document.getElementById('file').addEventListener('change', function(e) {
+        const fileName = e.target.files[0] ? e.target.files[0].name : '';
+        document.getElementById('file-name').textContent = fileName;
+    });
+</script>
+{% endblock %}

@@ -575,6 +575,48 @@ def add_user():
     
     return render_template('add_user.html', groups=groups)
 
+# 修改密码路由
+@app.route('/change_password', methods=['GET', 'POST'])
+@login_required
+def change_password():
+    if request.method == 'POST':
+        current_password = request.form.get('current_password')
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+        
+        if not current_password or not new_password or not confirm_password:
+            flash('所有字段都是必填的')
+            return render_template('change_password.html')
+        
+        if new_password != confirm_password:
+            flash('新密码和确认密码不匹配')
+            return render_template('change_password.html')
+        
+        # 验证当前密码
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute('SELECT password FROM users WHERE id = ?', (session.get('user_id'),))
+        result = cursor.fetchone()
+        
+        if not result or result[0] != current_password:
+            conn.close()
+            flash('当前密码不正确')
+            return render_template('change_password.html')
+        
+        # 更新密码
+        try:
+            cursor.execute('UPDATE users SET password = ? WHERE id = ?', (new_password, session.get('user_id')))
+            conn.commit()
+            flash('密码修改成功')
+            return redirect(url_for('index'))
+        except Exception as e:
+            conn.rollback()
+            flash('密码修改失败: {}'.format(str(e)))
+        finally:
+            conn.close()
+    
+    return render_template('change_password.html')
+
 @app.route('/users/edit/<int:user_id>', methods=['GET', 'POST'])
 @login_required
 def edit_user(user_id):
