@@ -725,6 +725,11 @@ def delete_user(user_id):
 @app.route('/')
 @login_required
 def index():
+    return redirect(url_for('list_documents'))
+
+@app.route('/upload')
+@login_required
+def show_upload():
     return render_template('upload.html')
 
 @app.route('/upload', methods=['POST'])
@@ -739,7 +744,7 @@ def upload_file():
     
     if file.filename == '':
         flash('No selected file')
-        return redirect(request.url)
+        return render_template('upload.html')
     
     if not file_number:
         flash('File number is required')
@@ -784,7 +789,7 @@ def upload_file():
             if os.path.exists(file_path):
                 os.remove(file_path)
             flash('在当前用户组内，文件编号已存在。请使用不同的文件编号。')
-            return redirect("/")
+            return render_template('upload.html')
         
         try:
             # 插入文档记录，包含组ID和上传者ID
@@ -802,7 +807,7 @@ def upload_file():
             if os.path.exists(file_path):
                 os.remove(file_path)
             flash('Error uploading file: {}'.format(str(e)))
-            return redirect(request.url)
+            return render_template('upload.html')
         
         # Generate QR code
         qr_path = generate_qr_code(document_id, filename)
