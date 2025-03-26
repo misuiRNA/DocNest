@@ -168,6 +168,7 @@
                 <a href="/list">文件列表</a>
                 <a href="/query">查询文档</a>
                 <a href="/users">用户管理</a>
+                <a href="/groups">用户组管理</a>
                 <a href="/logout">退出登录</a>
             </div>
         </div>
@@ -185,6 +186,8 @@
                             <th>文件编号</th>
                             <th>文件名</th>
                             <th>提取码</th>
+                            <th>上传者</th>
+                            <th>用户组</th>
                             <th>上传日期</th>
                             <th>操作</th>
                         </tr>
@@ -195,6 +198,8 @@
                             <td>{{ doc.file_number }}</td>
                             <td>{{ doc.original_filename }}</td>
                             <td class="extraction-code">{{ doc.extraction_code }}</td>
+                            <td>{{ doc.uploader if doc.uploader else '未知' }}</td>
+                            <td>{{ doc.group_name if doc.group_name else '无' }}</td>
                             <td>{{ doc.upload_date }}</td>
                             <td class="actions">
                                 <a href="/view/{{ doc.id }}" class="btn" title="查看文档">

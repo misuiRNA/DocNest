@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>编辑用户</title>
+    <title>添加用户组</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -19,12 +19,14 @@
             font-weight: bold;
         }
         input[type="text"],
-        input[type="password"],
-        select {
+        textarea {
             width: 300px;
             padding: 8px;
             border: 1px solid #ddd;
             border-radius: 3px;
+        }
+        textarea {
+            height: 100px;
         }
         .btn {
             padding: 8px 15px;
@@ -75,7 +77,7 @@
         <a href="{{ url_for('logout') }}">退出登录</a>
     </div>
 
-    <h1>编辑用户</h1>
+    <h1>添加用户组</h1>
 
     {% with messages = get_flashed_messages() %}
         {% if messages %}
@@ -89,39 +91,16 @@
 
     <form method="post">
         <div class="form-group">
-            <label for="username">用户名</label>
-            <input type="text" id="username" name="username" value="{{ user.username }}" required {% if user.username == 'admin' %}readonly{% endif %}>
-            {% if user.username == 'admin' %}
-            <small style="color: #6c757d;">默认管理员用户名不能修改</small>
-            {% endif %}
+            <label for="group_name">用户组名称</label>
+            <input type="text" id="group_name" name="group_name" required>
         </div>
         <div class="form-group">
-            <label for="password">密码</label>
-            <input type="password" id="password" name="password" value="{{ user.password }}" required>
-        </div>
-        <div class="form-group">
-            <label for="group_id">用户组</label>
-            <select id="group_id" name="group_id" {% if user.username == 'admin' %}disabled{% endif %}>
-                <option value="">-- 选择用户组 --</option>
-                {% for group in groups %}
-                    <option value="{{ group.id }}" {% if user.group_id == group.id %}selected{% endif %}>{{ group.group_name }}</option>
-                {% endfor %}
-            </select>
-            {% if user.username == 'admin' %}
-            <small style="color: #6c757d;">默认管理员用户不能分配到用户组</small>
-            {% endif %}
-        </div>
-        <div class="form-group">
-            <label>创建者</label>
-            <div>{{ user.created_by }}</div>
-        </div>
-        <div class="form-group">
-            <label>创建时间</label>
-            <div>{{ user.created_at }}</div>
+            <label for="description">描述</label>
+            <textarea id="description" name="description"></textarea>
         </div>
         <div class="actions">
-            <button type="submit" class="btn btn-primary">保存</button>
-            <a href="{{ url_for('list_users') }}" class="btn btn-secondary">取消</a>
+            <button type="submit" class="btn btn-primary">添加</button>
+            <a href="{{ url_for('list_groups') }}" class="btn btn-secondary">取消</a>
         </div>
     </form>
 </body>

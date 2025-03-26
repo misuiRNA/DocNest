@@ -27,8 +27,7 @@ def login_required(view):
 def admin_required(view):
     @functools.wraps(view)
     def wrapped_view(**kwargs):
-        # if not session.get('logged_in') or session.get('username') != DEFAULT_USERNAME:
-        if not session.get('logged_in'):
+        if not session.get('logged_in') or session.get('username') != DEFAULT_USERNAME:
             flash('需要管理员权限')
             return redirect(url_for('index'))
         return view(**kwargs)
@@ -58,6 +57,17 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
+    # Create the user_groups table if it doesn't exist
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS user_groups (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        group_name TEXT NOT NULL UNIQUE,
+        description TEXT,
+        created_by TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
+    
     # Create the documents table if it doesn't exist
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS documents (
@@ -66,7 +76,11 @@ def init_db():
         filename TEXT NOT NULL,
         original_filename TEXT NOT NULL,
         extraction_code TEXT NOT NULL,
-        upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        group_id INTEGER,
+        uploaded_by INTEGER,
+        upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (group_id) REFERENCES user_groups (id),
+        FOREIGN KEY (uploaded_by) REFERENCES users (id)
     )
     ''')
     
@@ -76,8 +90,10 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT NOT NULL UNIQUE,
         password TEXT NOT NULL,
+        group_id INTEGER,
         created_by TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (group_id) REFERENCES user_groups (id)
     )
     ''')
     
@@ -152,6 +168,22 @@ def generate_qr_code(document_id, filename):
     qr_path = "static/qrcodes/{}.png".format(filename.split('.')[0])
     img.save(qr_path)
     return qr_path
+# 检查用户是否为默认用户
+def is_default_user():
+    return session.get('username') == DEFAULT_USERNAME
+
+# 获取用户所属的组ID
+def get_user_group_id():
+    if not session.get('logged_in'):
+        return None
+    
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('SELECT group_id FROM users WHERE id = ?', (session.get('user_id'),))
+    result = cursor.fetchone()
+    conn.close()
+    
+    return result[0] if result else None
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -182,29 +214,231 @@ def logout():
     session.pop('user_id', None)
     return redirect(url_for('login'))
 
+# 用户组管理路由
+@app.route('/groups')
+@login_required
+def list_groups():
+    # 只有默认用户可以查看所有用户组
+    if not is_default_user():
+        # 非默认用户只能查看自己所属的用户组
+        group_id = get_user_group_id()
+        if not group_id:
+            flash('您没有查看用户组的权限')
+            return redirect(url_for('index'))
+        
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM user_groups WHERE id = ?', (group_id,))
+        groups = cursor.fetchall()
+        
+        # 获取组内用户
+        cursor.execute('SELECT id, username, created_by, created_at FROM users WHERE group_id = ?', (group_id,))
+        users = cursor.fetchall()
+        conn.close()
+        
+        return render_template('group_detail.html', group=groups[0], users=users, is_admin=False)
+    
+    # 默认用户可以查看所有用户组
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM user_groups ORDER BY created_at DESC')
+    groups = cursor.fetchall()
+    conn.close()
+    
+    return render_template('groups.html', groups=groups)
+
+@app.route('/groups/add', methods=['GET', 'POST'])
+@login_required
+def add_group():
+    # 只有默认用户可以添加用户组
+    if not is_default_user():
+        flash('只有默认用户可以管理用户组')
+        return redirect(url_for('index'))
+    
+    if request.method == 'POST':
+        group_name = request.form.get('group_name')
+        description = request.form.get('description', '')
+        
+        if not group_name:
+            flash('用户组名称不能为空')
+            return redirect(url_for('add_group'))
+        
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        # 检查用户组名称是否已存在
+        cursor.execute('SELECT COUNT(*) FROM user_groups WHERE group_name = ?', (group_name,))
+        if cursor.fetchone()[0] > 0:
+            conn.close()
+            flash('用户组名称已存在')
+            return redirect(url_for('add_group'))
+        
+        try:
+            cursor.execute(
+                'INSERT INTO user_groups (group_name, description, created_by) VALUES (?, ?, ?)',
+                (group_name, description, session.get('username'))
+            )
+            conn.commit()
+            flash('用户组添加成功')
+            return redirect(url_for('list_groups'))
+        except Exception as e:
+            conn.rollback()
+            flash(f'添加用户组失败: {str(e)}')
+        finally:
+            conn.close()
+    
+    return render_template('add_group.html')
+
+@app.route('/groups/delete/<int:group_id>', methods=['POST'])
+@login_required
+def delete_group(group_id):
+    # 只有默认用户可以删除用户组
+    if not is_default_user():
+        flash('只有默认用户可以管理用户组')
+        return redirect(url_for('index'))
+    
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    # 检查是否有用户属于该组
+    cursor.execute('SELECT COUNT(*) FROM users WHERE group_id = ?', (group_id,))
+    if cursor.fetchone()[0] > 0:
+        conn.close()
+        flash('该用户组下还有用户，无法删除')
+        return redirect(url_for('list_groups'))
+    
+    # 检查是否有文档属于该组
+    cursor.execute('SELECT COUNT(*) FROM documents WHERE group_id = ?', (group_id,))
+    if cursor.fetchone()[0] > 0:
+        conn.close()
+        flash('该用户组下还有文档，无法删除')
+        return redirect(url_for('list_groups'))
+    
+    try:
+        cursor.execute('DELETE FROM user_groups WHERE id = ?', (group_id,))
+        conn.commit()
+        flash('用户组删除成功')
+    except Exception as e:
+        conn.rollback()
+        flash(f'删除用户组失败: {str(e)}')
+    finally:
+        conn.close()
+    
+    return redirect(url_for('list_groups'))
+
+@app.route('/groups/<int:group_id>')
+@login_required
+def view_group(group_id):
+    # 检查权限
+    if not is_default_user():
+        user_group_id = get_user_group_id()
+        if user_group_id != group_id:
+            flash('您没有查看该用户组的权限')
+            return redirect(url_for('index'))
+    
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    # 获取用户组信息
+    cursor.execute('SELECT * FROM user_groups WHERE id = ?', (group_id,))
+    group = cursor.fetchone()
+    
+    if not group:
+        conn.close()
+        flash('用户组不存在')
+        return redirect(url_for('list_groups'))
+    
+    # 获取组内用户
+    cursor.execute('SELECT id, username, created_by, created_at FROM users WHERE group_id = ?', (group_id,))
+    users = cursor.fetchall()
+    conn.close()
+    return render_template('group_detail.html', group=group, users=users, is_admin=is_default_user())
+
 @app.route('/users')
 @login_required
-@admin_required
 def list_users():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-    cursor.execute('SELECT id, username, created_by, created_at FROM users ORDER BY created_at DESC')
+    
+    # 默认用户可以查看所有用户
+    if is_default_user():
+        cursor.execute('''
+            SELECT u.id, u.username, u.created_by, u.created_at, g.group_name 
+            FROM users u 
+            LEFT JOIN user_groups g ON u.group_id = g.id 
+            ORDER BY u.created_at DESC
+        ''')
+        users = cursor.fetchall()
+        conn.close()
+        
+        return render_template('users.html', users=users, is_admin=True)
+    
+    # 非默认用户只能查看同组用户
+    group_id = get_user_group_id()
+    if not group_id:
+        conn.close()
+        flash('您没有查看用户列表的权限')
+        return redirect(url_for('index'))
+    
+    cursor.execute('''
+        SELECT u.id, u.username, u.created_by, u.created_at, g.group_name 
+        FROM users u 
+        LEFT JOIN user_groups g ON u.group_id = g.id 
+        WHERE u.group_id = ? 
+        ORDER BY u.created_at DESC
+    ''', (group_id,))
     users = cursor.fetchall()
     conn.close()
     
-    return render_template('users.html', users=users)
+    return render_template('users.html', users=users, is_admin=False)
 
 @app.route('/users/add', methods=['GET', 'POST'])
 @login_required
 def add_user():
+    # 获取可用的用户组
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    # 默认用户可以查看所有用户组
+    if is_default_user():
+        cursor.execute('SELECT id, group_name FROM user_groups ORDER BY group_name')
+    else:
+        # 非默认用户只能查看自己所属的用户组
+        group_id = get_user_group_id()
+        if not group_id:
+            conn.close()
+            flash('您没有添加用户的权限')
+            return redirect(url_for('index'))
+        cursor.execute('SELECT id, group_name FROM user_groups WHERE id = ?', (group_id,))
+    
+    groups = cursor.fetchall()
+    conn.close()
+    
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
+        group_id = request.form.get('group_id')
+        
+        # 默认用户可以不选择组，其他用户必须选择组
+        if not is_default_user() and not group_id:
+            flash('必须选择用户组')
+            return render_template('add_user.html', groups=groups)
         
         if not username or not password:
             flash('用户名和密码不能为空')
-            return redirect(url_for('add_user'))
+            return render_template('add_user.html', groups=groups)
+        
+        # 非默认用户只能添加到自己所属的组
+        if not is_default_user():
+            user_group_id = get_user_group_id()
+            if int(group_id) != user_group_id:
+                flash('您只能添加用户到自己所属的用户组')
+                return render_template('add_user.html', groups=groups)
         
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
@@ -214,13 +448,19 @@ def add_user():
         if cursor.fetchone()[0] > 0:
             conn.close()
             flash('用户名已存在')
-            return redirect(url_for('add_user'))
+            return render_template('add_user.html', groups=groups)
         
         try:
-            cursor.execute(
-                'INSERT INTO users (username, password, created_by) VALUES (?, ?, ?)',
-                (username, password, session.get('username'))
-            )
+            if group_id:
+                cursor.execute(
+                    'INSERT INTO users (username, password, group_id, created_by) VALUES (?, ?, ?, ?)',
+                    (username, password, group_id, session.get('username'))
+                )
+            else:
+                cursor.execute(
+                    'INSERT INTO users (username, password, created_by) VALUES (?, ?, ?)',
+                    (username, password, session.get('username'))
+                )
             conn.commit()
             flash('用户添加成功')
             return redirect(url_for('list_users'))
@@ -230,7 +470,7 @@ def add_user():
         finally:
             conn.close()
     
-    return render_template('add_user.html')
+    return render_template('add_user.html', groups=groups)
 
 @app.route('/users/edit/<int:user_id>', methods=['GET', 'POST'])
 @login_required
@@ -244,32 +484,71 @@ def edit_user(user_id):
     user = cursor.fetchone()
     
     # 检查是否有权限编辑
-    if not user or (user['username'] != session.get('username') and session.get('username') != DEFAULT_USERNAME):
+    if not user:
         conn.close()
-        flash('没有权限编辑此用户')
+        flash('用户不存在')
         return redirect(url_for('list_users'))
+    
+    # 非默认用户只能编辑自己或同组用户
+    if not is_default_user():
+        if user['username'] != session.get('username'):
+            # 检查是否同组
+            user_group_id = get_user_group_id()
+            if user['group_id'] != user_group_id:
+                conn.close()
+                flash('没有权限编辑此用户')
+                return redirect(url_for('list_users'))
+    
+    # 获取可用的用户组
+    if is_default_user():
+        cursor.execute('SELECT id, group_name FROM user_groups ORDER BY group_name')
+    else:
+        # 非默认用户只能查看自己所属的用户组
+        group_id = get_user_group_id()
+        cursor.execute('SELECT id, group_name FROM user_groups WHERE id = ?', (group_id,))
+    
+    groups = cursor.fetchall()
     
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
+        group_id = request.form.get('group_id')
+        
+        # 默认用户可以不选择组，其他用户必须选择组
+        if not is_default_user() and not group_id and user['username'] != DEFAULT_USERNAME:
+            flash('必须选择用户组')
+            return render_template('edit_user.html', user=user, groups=groups)
         
         if not username or not password:
             flash('用户名和密码不能为空')
-            return redirect(url_for('edit_user', user_id=user_id))
+            return render_template('edit_user.html', user=user, groups=groups)
+        
+        # 非默认用户只能添加到自己所属的组
+        if not is_default_user() and group_id:
+            user_group_id = get_user_group_id()
+            if int(group_id) != user_group_id:
+                flash('您只能将用户分配到自己所属的用户组')
+                return render_template('edit_user.html', user=user, groups=groups)
         
         # 如果修改用户名，检查新用户名是否已存在
         if username != user['username']:
             cursor.execute('SELECT COUNT(*) FROM users WHERE username = ? AND id != ?', (username, user_id))
             if cursor.fetchone()[0] > 0:
-                conn.close()
                 flash('用户名已存在')
-                return redirect(url_for('edit_user', user_id=user_id))
+                return render_template('edit_user.html', user=user, groups=groups)
         
         try:
-            cursor.execute(
-                'UPDATE users SET username = ?, password = ? WHERE id = ?',
-                (username, password, user_id)
-            )
+            # 不允许修改默认用户的组
+            if user['username'] == DEFAULT_USERNAME:
+                cursor.execute(
+                    'UPDATE users SET username = ?, password = ? WHERE id = ?',
+                    (username, password, user_id)
+                )
+            else:
+                cursor.execute(
+                    'UPDATE users SET username = ?, password = ?, group_id = ? WHERE id = ?',
+                    (username, password, group_id, user_id)
+                )
             conn.commit()
             flash('用户信息更新成功')
             
@@ -284,12 +563,51 @@ def edit_user(user_id):
         finally:
             conn.close()
     
-    return render_template('edit_user.html', user=user)
-
+    return render_template('edit_user.html', user=user, groups=groups)
 @app.route('/users/delete/<int:user_id>', methods=['POST'])
 @login_required
-@admin_required
 def delete_user(user_id):
+    # 检查权限
+    if not is_default_user():
+        # 非默认用户只能删除同组用户
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        # 获取要删除的用户信息
+        cursor.execute('SELECT username, group_id FROM users WHERE id = ?', (user_id,))
+        user = cursor.fetchone()
+        
+        if not user:
+            conn.close()
+            flash('用户不存在')
+            return redirect(url_for('list_users'))
+        
+        # 不允许删除默认管理员用户
+        if user[0] == DEFAULT_USERNAME:
+            conn.close()
+            flash('不允许删除默认管理员用户')
+            return redirect(url_for('list_users'))
+        
+        # 检查是否同组
+        user_group_id = get_user_group_id()
+        if user[1] != user_group_id:
+            conn.close()
+            flash('没有权限删除此用户')
+            return redirect(url_for('list_users'))
+        
+        try:
+            cursor.execute('DELETE FROM users WHERE id = ?', (user_id,))
+            conn.commit()
+            flash('用户删除成功')
+        except Exception as e:
+            conn.rollback()
+            flash(f'删除用户失败: {str(e)}')
+        finally:
+            conn.close()
+        
+        return redirect(url_for('list_users'))
+    
+    # 默认用户可以删除任何用户
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
@@ -375,9 +693,13 @@ def upload_file():
             return redirect("/")
         
         try:
+            # 获取用户所属组
+            group_id = get_user_group_id()
+            
+            # 插入文档记录，包含组ID和上传者ID
             cursor.execute(
-                'INSERT INTO documents (file_number, filename, original_filename, extraction_code) VALUES (?, ?, ?, ?)',
-                (file_number, filename, original_filename, extraction_code)
+                'INSERT INTO documents (file_number, filename, original_filename, extraction_code, group_id, uploaded_by) VALUES (?, ?, ?, ?, ?, ?)',
+                (file_number, filename, original_filename, extraction_code, group_id, session.get('user_id'))
             )
             document_id = cursor.lastrowid
             conn.commit()
@@ -407,35 +729,52 @@ def upload_file():
 def view_document(document_id):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.execute('SELECT filename, original_filename FROM documents WHERE id = ?', (document_id,))
-    result = cursor.fetchone()
-    conn.close()
     
-    if result:
-        filename, original_filename = result
-        return render_template('view.html', 
-                              filename=filename, 
-                              original_filename=original_filename)
-    else:
+    # 检查文档是否存在
+    cursor.execute('SELECT filename, original_filename, group_id FROM documents WHERE id = ?', (document_id,))
+    result = cursor.fetchone()
+    
+    if not result:
+        conn.close()
         abort(404)
+    
+    filename, original_filename, group_id = result
+    
+    # 如果用户已登录，检查权限
+    if session.get('logged_in'):
+        # 默认用户可以查看所有文档
+        if is_default_user():
+            conn.close()
+            return render_template('view.html', 
+                                  filename=filename, 
+                                  original_filename=original_filename)
+        
+        # 检查用户是否有权限查看该文档
+        user_group_id = get_user_group_id()
+        cursor.execute('SELECT uploaded_by FROM documents WHERE id = ?', (document_id,))
+        uploaded_by = cursor.fetchone()[0]
+        
+        # 如果文档没有组ID或用户是上传者，或用户组与文档组相同，则允许查看
+        if group_id is None or uploaded_by == session.get('user_id') or group_id == user_group_id:
+            conn.close()
+            return render_template('view.html', 
+                                  filename=filename, 
+                                  original_filename=original_filename)
+        
+        conn.close()
+        flash('您没有权限查看此文档')
+        return redirect(url_for('index'))
+    
+    # 未登录用户通过链接访问，允许查看
+    conn.close()
+    return render_template('view.html', 
+                          filename=filename, 
+                          original_filename=original_filename)
 
 @app.route('/query')
 # 注意：这个路由不需要登录验证
 def query_page():
     return render_template('query.html')
-
-@app.route('/list')
-@login_required
-def list_documents():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row  # This enables column access by name
-    cursor = conn.cursor()
-    cursor.execute('SELECT id, file_number, original_filename, extraction_code, upload_date FROM documents ORDER BY upload_date DESC')
-    documents = cursor.fetchall()
-    conn.close()
-    
-    return render_template('list.html', documents=documents)
-
 @app.route('/query/document', methods=['POST'])
 # 注意：这个路由不需要登录验证
 def query_document():
@@ -500,14 +839,22 @@ def delete_document(document_id):
         cursor = conn.cursor()
         
         # 获取文档信息
-        cursor.execute('SELECT filename FROM documents WHERE id = ?', (document_id,))
+        cursor.execute('SELECT filename, group_id, uploaded_by FROM documents WHERE id = ?', (document_id,))
         result = cursor.fetchone()
         
         if not result:
             conn.close()
             return 'Document not found', 404
         
-        filename = result[0]
+        filename, group_id, uploaded_by = result
+        
+        # 检查权限
+        if not is_default_user():
+            # 非默认用户只能删除自己上传的文档或同组文档
+            user_group_id = get_user_group_id()
+            if uploaded_by != session.get('user_id') and group_id != user_group_id:
+                conn.close()
+                return '没有权限删除此文档', 403
         
         # 删除文件
         file_path = os.path.join('static/uploads', filename)
@@ -529,6 +876,53 @@ def delete_document(document_id):
     except Exception as e:
         print(f"Error deleting document: {e}")
         return str(e), 500
+
+@app.route('/list')
+@login_required
+def list_documents():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row  # This enables column access by name
+    cursor = conn.cursor()
+    
+    # 默认用户可以查看所有文档
+    if is_default_user():
+        cursor.execute('''
+            SELECT d.id, d.file_number, d.original_filename, d.extraction_code, d.upload_date, 
+                   u.username as uploader, g.group_name
+            FROM documents d
+            LEFT JOIN users u ON d.uploaded_by = u.id
+            LEFT JOIN user_groups g ON d.group_id = g.id
+            ORDER BY d.upload_date DESC
+        ''')
+    else:
+        # 非默认用户只能查看自己组的文档
+        group_id = get_user_group_id()
+        if not group_id:
+            # 如果用户没有组，则只能查看自己上传的文档
+            cursor.execute('''
+                SELECT d.id, d.file_number, d.original_filename, d.extraction_code, d.upload_date, 
+                       u.username as uploader, g.group_name
+                FROM documents d
+                LEFT JOIN users u ON d.uploaded_by = u.id
+                LEFT JOIN user_groups g ON d.group_id = g.id
+                WHERE d.uploaded_by = ? OR d.group_id IS NULL
+                ORDER BY d.upload_date DESC
+            ''', (session.get('user_id'),))
+        else:
+            cursor.execute('''
+                SELECT d.id, d.file_number, d.original_filename, d.extraction_code, d.upload_date, 
+                       u.username as uploader, g.group_name
+                FROM documents d
+                LEFT JOIN users u ON d.uploaded_by = u.id
+                LEFT JOIN user_groups g ON d.group_id = g.id
+                WHERE d.group_id = ? OR d.uploaded_by = ?
+                ORDER BY d.upload_date DESC
+            ''', (group_id, session.get('user_id')))
+    
+    documents = cursor.fetchall()
+    conn.close()
+    
+    return render_template('list.html', documents=documents)
 
 # Add test document after all functions are defined
 add_test_document()

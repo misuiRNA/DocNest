@@ -74,6 +74,7 @@
         <a href="{{ url_for('index') }}">首页</a>
         <a href="{{ url_for('list_documents') }}">文档列表</a>
         <a href="{{ url_for('list_users') }}">用户管理</a>
+        <a href="{{ url_for('list_groups') }}">用户组管理</a>
         <a href="{{ url_for('logout') }}">退出登录</a>
     </div>
 
@@ -96,6 +97,7 @@
             <tr>
                 <th>ID</th>
                 <th>用户名</th>
+                <th>用户组</th>
                 <th>创建者</th>
                 <th>创建时间</th>
                 <th>操作</th>
@@ -106,6 +108,7 @@
                 <tr>
                     <td>{{ user.id }}</td>
                     <td>{{ user.username }}</td>
+                    <td>{{ user.group_name if user.group_name else '无' }}</td>
                     <td>{{ user.created_by }}</td>
                     <td>{{ user.created_at }}</td>
                     <td class="actions">
