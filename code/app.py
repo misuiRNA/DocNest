@@ -8,6 +8,7 @@ import string
 import sqlite3
 import qrcode
 import functools
+from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, abort, session
 
 app = Flask(__name__)
@@ -17,12 +18,25 @@ app.secret_key = 'your_secret_key'  # Change this to a random secret key
 DEFAULT_USERNAME = 'admin'
 DEFAULT_PASSWORD = 'admin'
 
+# 已登录登录信息 key: username, value: {login_time: datetime, login_ip: ip}
+user_login_info = {}
+
 # 登录验证装饰器
 def login_required(view):
     @functools.wraps(view)
     def wrapped_view(**kwargs):
-        if not session.get('logged_in'):
+        if not session.get('logged_in') or not session.get('username', None):
             return redirect(url_for('login'))
+        username = session.get('username')
+        if not user_login_info.get(username, None):
+            flash("请先登录")
+            return redirect(url_for('login'))
+        login_time = user_login_info.get(username).get('login_time')
+        if login_time and (datetime.now() - login_time).total_seconds() > 60 * 30:    # 30分钟过期
+            flash("登录超时，请重新登录")
+            del user_login_info[username]
+            return redirect(url_for('login'))
+
         return view(**kwargs)
     return wrapped_view
 
@@ -285,6 +299,10 @@ def login():
             session['logged_in'] = True
             session['username'] = username
             session['user_id'] = user[0]
+
+            user_login_info[username] = {
+                'login_time': datetime.now()
+            }
             return redirect(url_for('index'))
         else:
             flash('用户名或密码错误')
@@ -293,6 +311,7 @@ def login():
 
 @app.route('/logout')
 def logout():
+    user_login_info.pop(session.get('username'), None)
     session.pop('logged_in', None)
     session.pop('username', None)
     session.pop('user_id', None)
