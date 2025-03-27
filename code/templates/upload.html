@@ -59,7 +59,8 @@
             <form class="upload-form" action="/upload" method="post" enctype="multipart/form-data">
                 <div style="width: 100%; margin-bottom: 20px;">
                     <label for="file_number" style="display: block; margin-bottom: 5px;">文件编号 (仅允许字母和数字):</label>
-                    <input type="text" name="file_number" id="file_number" pattern="[A-Za-z0-9]+" required 
+                    <input type="text" name="file_number" id="file_number" pattern="[a-zA-Z0-9\-_+]+" required 
+                           title="文件编号只能包含字母、数字及符号-、_和+" 
                            style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 16px;">
                 </div>
                 <div class="file-input-container">

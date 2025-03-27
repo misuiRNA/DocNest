@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import re
 import sys
 import random
 import string
@@ -801,7 +802,7 @@ def upload_file():
         return redirect(request.url)
     
     file = request.files['file']
-    file_number = request.form.get('file_number', '').strip()
+    file_number = request.form.get('file_number', '')
     
     if file.filename == '':
         flash('No selected file')
@@ -812,7 +813,7 @@ def upload_file():
         return redirect(request.url)
     
     # Validate file number (only letters and numbers allowed)
-    if not file_number.isalnum():
+    if not re.fullmatch(r"[a-zA-Z0-9\-_+]+", file_number):
         flash('File number can only contain letters and numbers')
         return redirect(request.url)
     
