@@ -127,7 +127,8 @@ def create_user():
         if not current_user_group:
             return jsonify({'error': 'You do not have permission to create users'}), 403
         
-        if group_id != current_user_group:
+        if int(group_id) != int(current_user_group):
+            print(f"error create user with diffrent groupid: {group_id}, {current_user_group}")
             return jsonify({'error': 'You can only create users in your own group'}), 403
     
     # Check if username already exists

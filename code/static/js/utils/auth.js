@@ -32,13 +32,10 @@ const auth = {
             document.getElementById('username-display').textContent = user.username;
             
             // Show admin-only navigation items if user is admin
-            const adminNav = document.getElementById('admin-nav');
             const adminNavGroups = document.getElementById('admin-nav-groups');
             if (user.is_admin) {
-                adminNav.style.display = 'block';
                 adminNavGroups.style.display = 'block';
             } else {
-                adminNav.style.display = 'none';
                 adminNavGroups.style.display = 'none';
             }
         } else {
@@ -118,7 +115,7 @@ const auth = {
         }
         
         // Admin-only routes
-        if (['users', 'groups'].includes(route) && !this.isAdmin()) {
+        if (['groups'].includes(route) && !this.isAdmin()) {
             return false;
         }
         
