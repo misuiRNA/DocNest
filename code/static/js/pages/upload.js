@@ -18,10 +18,13 @@ const uploadPage = {
                         <input type="text" id="file_number" name="file_number" class="form-input" required>
                         <small style="color: var(--gray-color);">文件编号只能包含字母、数字和 -_+ 符号</small>
                     </div>
-                    <div class="form-group">
-                        <label for="file" class="form-label">选择文件</label>
-                        <input type="file" id="file" name="file" class="form-input" accept=".pdf" required>
-                        <small style="color: var(--gray-color);">只允许上传 PDF 文件</small>
+                    <div class="file-input-container">
+                        <label for="file" class="file-input-label">
+                            <i class="fas fa-file-pdf"></i>
+                            <span>点击或拖拽PDF文件到此处</span>
+                            <span class="file-name" id="file-name"></span>
+                        </label>
+                        <input type="file" name="file" id="file" class="file-input" accept=".pdf">
                     </div>
                     <button type="submit" class="btn">
                         <i class="fas fa-upload"></i> 上传文档
