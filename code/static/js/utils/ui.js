@@ -9,7 +9,7 @@ const ui = {
     
     // Set page title
     setTitle(title) {
-        document.title = `${title} - 文档管理系统`;
+        document.title = `${title} - DocNest`;
     },
     
     // Set active navigation link
