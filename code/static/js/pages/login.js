@@ -57,10 +57,10 @@ const loginPage = {
             return;
         }
         
+        const submitButton = event.target.querySelector('button[type="submit"]');
+        const originalText = submitButton.innerHTML;
         try {
             // Show loading state
-            const submitButton = event.target.querySelector('button[type="submit"]');
-            const originalText = submitButton.innerHTML;
             submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 登录中...';
             submitButton.disabled = true;
             

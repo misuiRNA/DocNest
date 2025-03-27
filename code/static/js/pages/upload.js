@@ -34,7 +34,7 @@ const uploadPage = {
         ui.render(uploadForm);
         
         // Add event listener to upload form
-        document.getElementById('upload-form').addEventListener('submit', this.handleUpload);
+        document.getElementById('upload-form').addEventListener('submit', this.handleUpload.bind(this));
     },
     
     // Handle upload form submission
@@ -69,10 +69,10 @@ const uploadPage = {
             return;
         }
         
+        const submitButton = event.target.querySelector('button[type="submit"]');
+        const originalText = submitButton.innerHTML;
         try {
             // Show loading state
-            const submitButton = event.target.querySelector('button[type="submit"]');
-            const originalText = submitButton.innerHTML;
             submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 上传中...';
             submitButton.disabled = true;
             
