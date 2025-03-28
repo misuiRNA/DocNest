@@ -67,9 +67,9 @@ const documentsPage = {
                                     <a href="${doc.view_url}" target="_blank" class="btn" title="查看文档">
                                         <i class="fas fa-eye"></i>
                                     </a>
-                                    <a href="${doc.qrcode_url}" target="_blank" class="btn" title="查看二维码">
+                                    <button class="btn" title="查看二维码" onclick="documentsPage.showQRCode('${doc.qrcode_url}', '${doc.file_number}')">
                                         <i class="fas fa-qrcode"></i>
-                                    </a>
+                                    </button>
                                     ${auth.isAdmin() || auth.getUser().role === 'group_admin' ? `
                                     <button class="btn btn-danger" title="删除文档" onclick="documentsPage.deleteDocument(${doc.id})">
                                         <i class="fas fa-trash"></i>
@@ -116,5 +116,25 @@ const documentsPage = {
                 showError('删除文档失败: ' + error.message);
             }
         });
+    },
+    
+    // Show QR code in modal
+    showQRCode: function(qrcodeUrl, fileNumber) {
+        // Create modal content
+        const modalContent = `
+            <h2 style="margin-bottom: 1.5rem;">文件 ${fileNumber} 的二维码</h2>
+            <div style="text-align: center; margin-bottom: 1.5rem;">
+                <img src="${qrcodeUrl}" alt="二维码" style="max-width: 100%; height: auto; border: 1px solid #ddd; padding: 10px; border-radius: 4px;">
+            </div>
+            <div style="display: flex; justify-content: center; margin-top: 1rem;">
+                <a href="${qrcodeUrl}" download="qrcode_${fileNumber}.png" class="btn" style="display: inline-flex; align-items: center;">
+                    <i class="fas fa-download" style="margin-right: 8px;"></i>
+                    下载二维码
+                </a>
+            </div>
+        `;
+        
+        // Open modal
+        openModal(modalContent);
     }
 };
