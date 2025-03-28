@@ -38,6 +38,45 @@ const uploadPage = {
         
         // Add event listener to upload form
         document.getElementById('upload-form').addEventListener('submit', this.handleUpload.bind(this));
+        
+        // Add event listener to file input to display file name when selected
+        document.getElementById('file').addEventListener('change', function(e) {
+            const fileInputContainer = document.querySelector('.file-input-container');
+            const fileNameElement = document.getElementById('file-name');
+            const fileInputLabel = document.querySelector('.file-input-label');
+            
+            if (e.target.files[0]) {
+                const fileName = e.target.files[0].name;
+                fileNameElement.textContent = fileName;
+                
+                // Add visual indication that file is selected
+                fileInputContainer.classList.add('file-selected');
+                fileInputLabel.innerHTML = `
+                    <i class="fas fa-file-pdf" style="color: var(--primary-color);"></i>
+                    <span>已选择文件:</span>
+                    <span class="file-name" id="file-name" style="font-weight: bold; color: var(--primary-color);">${fileName}</span>
+                `;
+            } else {
+                fileNameElement.textContent = '';
+                fileInputContainer.classList.remove('file-selected');
+                fileInputLabel.innerHTML = `
+                    <i class="fas fa-file-pdf"></i>
+                    <span>点击或拖拽PDF文件到此处</span>
+                    <span class="file-name" id="file-name"></span>
+                `;
+            }
+        });
+        
+        // Add CSS for file selection visual feedback
+        const style = document.createElement('style');
+        style.textContent = `
+            .file-input-container.file-selected .file-input-label {
+                background-color: rgba(0, 123, 255, 0.1);
+                border: 1px solid var(--primary-color);
+                transition: all 0.3s ease;
+            }
+        `;
+        document.head.appendChild(style);
     },
     
     // Handle upload form submission
