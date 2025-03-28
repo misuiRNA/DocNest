@@ -22,6 +22,66 @@ def get_db():
     if 'db' not in g:
         g.db = sqlite3.connect(DB_PATH)
         g.db.row_factory = sqlite3.Row
+        
+        # Check if tables exist, if not create them
+        cursor = g.db.cursor()
+        
+        # Check if users table exists
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
+        if not cursor.fetchone():
+            # Create users table
+            cursor.execute('''
+                CREATE TABLE users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT UNIQUE NOT NULL,
+                    password TEXT NOT NULL,
+                    group_id INTEGER,
+                    role TEXT DEFAULT 'user',
+                    created_by TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # Create default admin user
+            cursor.execute(
+                'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
+                (DEFAULT_USERNAME, 'admin', 'admin')
+            )
+        
+        # Check if user_groups table exists
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='user_groups'")
+        if not cursor.fetchone():
+            # Create user_groups table
+            cursor.execute('''
+                CREATE TABLE user_groups (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    group_name TEXT UNIQUE NOT NULL,
+                    description TEXT,
+                    created_by TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+        
+        # Check if documents table exists
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='documents'")
+        if not cursor.fetchone():
+            # Create documents table
+            cursor.execute('''
+                CREATE TABLE documents (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    file_number TEXT NOT NULL,
+                    filename TEXT NOT NULL,
+                    original_filename TEXT NOT NULL,
+                    extraction_code TEXT NOT NULL,
+                    group_id INTEGER,
+                    uploaded_by INTEGER,
+                    upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+        # Commit changes
+        g.db.commit()
+        
     return g.db
 
 # Close database connection
