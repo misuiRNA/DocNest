@@ -120,7 +120,8 @@ def create_user():
     role = data.get('role', 'user')
     
     # Only admin can set role to group_admin or admin
-    if role in ['group_admin', 'admin'] and not g.current_user['is_admin']:
+    is_admin = g.current_user['is_admin'] or g.current_user['role'] == 'group_admin'
+    if role in ['group_admin', 'admin'] and not is_admin:
         return jsonify({'error': 'Only admin can create group admin or admin users'}), 403
     
     # Connect to database
@@ -184,7 +185,8 @@ def update_user(user_id):
     role = data.get('role')
     
     # Only admin can set role to group_admin or admin
-    if role in ['group_admin', 'admin'] and not g.current_user['is_admin']:
+    is_admin = g.current_user['is_admin'] or g.current_user['role'] == 'group_admin'
+    if role in ['group_admin', 'admin'] and not is_admin:
         return jsonify({'error': 'Only admin can set group admin or admin roles'}), 403
     
     # Connect to database

@@ -123,7 +123,8 @@ const usersPage = {
             const userData = {
                 username: formData.get('username'),
                 password: formData.get('password'),
-                group_id: formData.get('group_id') || null
+                group_id: formData.get('group_id') || null,
+                role: formData.get('role')
             };
             
             this.addUser(userData);
@@ -133,6 +134,12 @@ const usersPage = {
     // Add user
     addUser: async function(userData) {
         try {
+            // Get the role from the form
+            const roleSelect = document.getElementById('role');
+            if (roleSelect) {
+                userData.role = roleSelect.value;
+            }
+            
             // Create user
             await api.createUser(userData);
             
