@@ -27,8 +27,9 @@ def generate_extraction_code():
 
 # Generate QR code for a document
 def generate_qr_code(document_id, filename):
-    # Create QR code with the view URL
-    view_url = url_for('api.view_document', document_id=document_id, _external=True)
+    # Create QR code with the mobile viewer URL instead of direct view URL
+    base_url = request.url_root.rstrip('/')
+    mobile_viewer_url = f"{base_url}/mobile-viewer.html?id={document_id}"
     
     qr = qrcode.QRCode(
         version=1,
@@ -36,7 +37,7 @@ def generate_qr_code(document_id, filename):
         box_size=10,
         border=4,
     )
-    qr.add_data(view_url)
+    qr.add_data(mobile_viewer_url)
     qr.make(fit=True)
     
     img = qr.make_image(fill_color="black", back_color="white")
