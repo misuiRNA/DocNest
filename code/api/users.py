@@ -18,7 +18,7 @@ def get_users():
     if g.current_user['is_admin']:
         # Admin can see all users
         cursor.execute('''
-            SELECT u.id, u.username, u.group_id, u.created_by, u.created_at, g.group_name 
+            SELECT u.id, u.username, u.group_id, u.created_by, u.created_at, u.role, g.group_name 
             FROM users u 
             LEFT JOIN user_groups g ON u.group_id = g.id 
             ORDER BY u.created_at DESC
@@ -33,7 +33,7 @@ def get_users():
             return jsonify({'users': []})
         
         cursor.execute('''
-            SELECT u.id, u.username, u.group_id, u.created_by, u.created_at, g.group_name 
+            SELECT u.id, u.username, u.group_id, u.created_by, u.created_at, u.role, g.group_name 
             FROM users u 
             LEFT JOIN user_groups g ON u.group_id = g.id 
             WHERE u.group_id = ? 
@@ -45,13 +45,15 @@ def get_users():
     # Convert to list of dictionaries
     users_list = []
     for user in users:
+        role = user['role'] if 'role' in user.keys() else 'user'
         users_list.append({
             'id': user['id'],
             'username': user['username'],
             'group_id': user['group_id'],
             'group_name': user['group_name'],
             'created_by': user['created_by'],
-            'created_at': user['created_at']
+            'created_at': user['created_at'],
+            'role': role
         })
     
     return jsonify({'users': users_list})
@@ -78,7 +80,7 @@ def get_user(user_id):
     
     # Get user
     cursor.execute('''
-        SELECT u.id, u.username, u.group_id, u.created_by, u.created_at, g.group_name 
+        SELECT u.id, u.username, u.group_id, u.created_by, u.created_at, u.role, g.group_name 
         FROM users u 
         LEFT JOIN user_groups g ON u.group_id = g.id 
         WHERE u.id = ?
@@ -90,13 +92,15 @@ def get_user(user_id):
         return jsonify({'error': 'User not found'}), 404
     
     # Convert to dictionary
+    role = user['role'] if 'role' in user.keys() else 'user'
     user_dict = {
         'id': user['id'],
         'username': user['username'],
         'group_id': user['group_id'],
         'group_name': user['group_name'],
         'created_by': user['created_by'],
-        'created_at': user['created_at']
+        'created_at': user['created_at'],
+        'role': role
     }
     
     return jsonify({'user': user_dict})
@@ -113,6 +117,11 @@ def create_user():
     username = data.get('username')
     password = data.get('password')
     group_id = data.get('group_id')
+    role = data.get('role', 'user')
+    
+    # Only admin can set role to group_admin or admin
+    if role in ['group_admin', 'admin'] and not g.current_user['is_admin']:
+        return jsonify({'error': 'Only admin can create group admin or admin users'}), 403
     
     # Connect to database
     conn = get_db()
@@ -140,13 +149,13 @@ def create_user():
     try:
         if group_id:
             cursor.execute(
-                'INSERT INTO users (username, password, group_id, created_by) VALUES (?, ?, ?, ?)',
-                (username, password, group_id, g.current_user['username'])
+                'INSERT INTO users (username, password, group_id, created_by, role) VALUES (?, ?, ?, ?, ?)',
+                (username, password, group_id, g.current_user['username'], role)
             )
         else:
             cursor.execute(
-                'INSERT INTO users (username, password, created_by) VALUES (?, ?, ?)',
-                (username, password, g.current_user['username'])
+                'INSERT INTO users (username, password, created_by, role) VALUES (?, ?, ?, ?)',
+                (username, password, g.current_user['username'], role)
             )
         
         user_id = cursor.lastrowid
@@ -172,6 +181,11 @@ def update_user(user_id):
     username = data.get('username')
     password = data.get('password')
     group_id = data.get('group_id')
+    role = data.get('role')
+    
+    # Only admin can set role to group_admin or admin
+    if role in ['group_admin', 'admin'] and not g.current_user['is_admin']:
+        return jsonify({'error': 'Only admin can set group admin or admin roles'}), 403
     
     # Connect to database
     conn = get_db()
@@ -220,6 +234,10 @@ def update_user(user_id):
         if group_id is not None:
             update_fields.append('group_id = ?')
             params.append(group_id)
+            
+        if role is not None:
+            update_fields.append('role = ?')
+            params.append(role)
         
         if not update_fields:
             return jsonify({'message': 'No fields to update'}), 200

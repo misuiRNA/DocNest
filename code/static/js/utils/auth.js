@@ -29,11 +29,21 @@ const auth = {
             // Show user dropdown
             const userDropdown = document.getElementById('user-dropdown');
             userDropdown.style.display = 'block';
-            document.getElementById('username-display').textContent = user.username;
+            
+            // Display username with role indicator
+            let roleText = '';
+            if (user.is_admin) {
+                roleText = ' <span class="role-badge admin">管理员</span>';
+            } else if (user.role === 'group_admin') {
+                roleText = ' <span class="role-badge group-admin">组管理员</span>';
+            }
+            document.getElementById('username-display').innerHTML = user.username + roleText;
             
             // Show admin-only navigation items if user is admin
             const adminNavGroups = document.getElementById('admin-nav-groups');
             if (user.is_admin) {
+                adminNavGroups.style.display = 'block';
+            } else if (user.role === 'group_admin') {
                 adminNavGroups.style.display = 'block';
             } else {
                 adminNavGroups.style.display = 'none';
@@ -102,6 +112,11 @@ const auth = {
         return currentUser && currentUser.is_admin;
     },
     
+    // Get user
+    getUser() {
+        return currentUser;
+    },
+    
     // Check if user has permission to access a route
     hasPermission(route) {
         // Public routes
@@ -115,8 +130,10 @@ const auth = {
         }
         
         // Admin-only routes
-        if (['groups'].includes(route) && !this.isAdmin()) {
-            return false;
+        if (['groups', 'users'].includes(route)) {
+            if (!this.isAdmin() && currentUser.role !== 'group_admin') {
+                return false;
+            }
         }
         
         return true;

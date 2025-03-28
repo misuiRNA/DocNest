@@ -15,8 +15,8 @@ def get_groups():
     if g.current_user['is_admin']:
         # Admin can see all groups
         cursor.execute('SELECT * FROM user_groups ORDER BY created_at DESC')
-    else:
-        # Non-admin can only see their own group
+    elif g.current_user['role'] == 'group_admin':
+        # Group admin can only see their own group
         cursor.execute('SELECT group_id FROM users WHERE id = ?', (g.current_user['id'],))
         group_id = cursor.fetchone()['group_id']
         
@@ -25,6 +25,9 @@ def get_groups():
             return jsonify({'groups': []})
         
         cursor.execute('SELECT * FROM user_groups WHERE id = ?', (group_id,))
+    else:
+        # Regular users cannot see groups
+        return jsonify({'error': 'You do not have permission to view groups'}), 403
     
     groups = cursor.fetchall()
     
@@ -49,13 +52,18 @@ def get_group(group_id):
     conn = get_db()
     cursor = conn.cursor()
     
-    # Check if user is admin or in the group
+    # Check if user is admin, group_admin, or in the group
     if not g.current_user['is_admin']:
-        cursor.execute('SELECT group_id FROM users WHERE id = ?', (g.current_user['id'],))
-        user_group_id = cursor.fetchone()['group_id']
+        cursor.execute('SELECT group_id, role FROM users WHERE id = ?', (g.current_user['id'],))
+        user = cursor.fetchone()
+        user_group_id = user['group_id']
+        user_role = user['role'] if 'role' in user.keys() else 'user'
         
         if user_group_id != group_id:
             return jsonify({'error': 'You do not have permission to view this group'}), 403
+        
+        if user_role == 'user':
+            return jsonify({'error': 'Regular users cannot view group details'}), 403
     
     # Get group
     cursor.execute('SELECT * FROM user_groups WHERE id = ?', (group_id,))
@@ -134,8 +142,21 @@ def create_group():
 # Update group route
 @api_bp.route('/groups/<int:group_id>', methods=['PUT'])
 @token_required
-@admin_required
 def update_group(group_id):
+    # Check if user is admin or group_admin of this group
+    if not g.current_user['is_admin']:
+        if g.current_user['role'] != 'group_admin':
+            return jsonify({'error': 'You do not have permission to update this group'}), 403
+        
+        # Check if group_admin belongs to this group
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('SELECT group_id FROM users WHERE id = ?', (g.current_user['id'],))
+        user_group_id = cursor.fetchone()['group_id']
+        
+        if user_group_id != group_id:
+            return jsonify({'error': 'You do not have permission to update this group'}), 403
+    # Continue with update
     data = request.get_json()
     
     if not data:
@@ -197,8 +218,11 @@ def update_group(group_id):
 # Delete group route
 @api_bp.route('/groups/<int:group_id>', methods=['DELETE'])
 @token_required
-@admin_required
 def delete_group(group_id):
+    # Check if user is admin (only admin can delete groups)
+    if not g.current_user['is_admin']:
+        return jsonify({'error': 'Only admin can delete groups'}), 403
+    # Continue with delete
     # Connect to database
     conn = get_db()
     cursor = conn.cursor()

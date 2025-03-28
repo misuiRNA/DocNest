@@ -9,6 +9,20 @@ const groupsPage = {
         ui.setTitle('用户组管理');
         
         try {
+            // Check if user has permission to view groups
+            if (!auth.isAdmin() && auth.getUser().role !== 'group_admin') {
+                ui.render(`
+                    <div class="card">
+                        <div class="empty-state">
+                            <i class="fas fa-lock"></i>
+                            <h3>权限不足</h3>
+                            <p>您没有权限查看用户组列表</p>
+                        </div>
+                    </div>
+                `);
+                return;
+            }
+            
             // Get groups
             const data = await api.getGroups();
             const groups = data.groups || [];
@@ -70,9 +84,11 @@ const groupsPage = {
                                     <button class="btn" title="编辑用户组" onclick="groupsPage.showEditGroupForm(${group.id})">
                                         <i class="fas fa-edit"></i>
                                     </button>
+                                    ${auth.isAdmin() ? `
                                     <button class="btn btn-danger" title="删除用户组" onclick="groupsPage.deleteGroup(${group.id}, '${group.group_name}')">
                                         <i class="fas fa-trash"></i>
                                     </button>
+                                    ` : ''}
                                 </div>
                             </td>
                         </tr>
@@ -222,6 +238,11 @@ const groupsPage = {
                             <button class="btn" onclick="groupsPage.showEditGroupForm(${group.id})">
                                 <i class="fas fa-edit"></i> 编辑用户组
                             </button>
+                            ${auth.isAdmin() ? `
+                            <button class="btn btn-danger" onclick="groupsPage.deleteGroup(${group.id}, '${group.group_name}')">
+                                <i class="fas fa-trash"></i> 删除用户组
+                            </button>
+                            ` : ''}
                             <a href="#groups" class="btn">
                                 <i class="fas fa-arrow-left"></i> 返回列表
                             </a>

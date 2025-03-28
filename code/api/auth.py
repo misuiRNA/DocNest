@@ -31,11 +31,12 @@ def close_db(e=None):
         db.close()
 
 # Generate JWT token
-def generate_token(user_id, username, is_admin):
+def generate_token(user_id, username, is_admin, role):
     payload = {
         'user_id': user_id,
         'username': username,
         'is_admin': is_admin,
+        'role': role,
         'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=TOKEN_EXPIRATION)
     }
     return jwt.encode(payload, JWT_SECRET, algorithm='HS256')
@@ -73,7 +74,8 @@ def token_required(f):
         g.current_user = {
             'id': payload['user_id'],
             'username': payload['username'],
-            'is_admin': payload['is_admin']
+            'is_admin': payload['is_admin'],
+            'role': payload['role']
         }
         
         return f(*args, **kwargs)
@@ -86,6 +88,17 @@ def admin_required(f):
     def decorated(*args, **kwargs):
         if not g.current_user['is_admin']:
             return jsonify({'error': 'Admin privileges required'}), 403
+        
+        return f(*args, **kwargs)
+    
+    return decorated
+
+# Group admin required decorator
+def group_admin_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not (g.current_user['is_admin'] or g.current_user['role'] == 'group_admin'):
+            return jsonify({'error': 'Group admin privileges required'}), 403
         
         return f(*args, **kwargs)
     
@@ -116,8 +129,11 @@ def login():
     # Check if user is admin
     is_admin = (username == DEFAULT_USERNAME)
     
+    # Get user role
+    role = user['role'] if 'role' in user.keys() else 'user'
+    
     # Generate token
-    token = generate_token(user['id'], username, is_admin)
+    token = generate_token(user['id'], username, is_admin, role)
     
     # Return token and user info
     return jsonify({
@@ -125,7 +141,8 @@ def login():
         'user': {
             'id': user['id'],
             'username': username,
-            'is_admin': is_admin
+            'is_admin': is_admin,
+            'role': role
         }
     })
 
@@ -157,7 +174,8 @@ def verify():
         'user': {
             'id': payload['user_id'],
             'username': payload['username'],
-            'is_admin': payload['is_admin']
+            'is_admin': payload['is_admin'],
+            'role': payload['role']
         }
     })
 

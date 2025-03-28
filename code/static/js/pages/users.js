@@ -48,6 +48,7 @@ const usersPage = {
                                 <tr>
                                     <th>ID</th>
                                     <th>用户名</th>
+                                    <th>角色</th>
                                     <th>用户组</th>
                                     <th>创建者</th>
                                     <th>创建时间</th>
@@ -63,6 +64,7 @@ const usersPage = {
                         <tr>
                             <td>${user.id}</td>
                             <td>${user.username}</td>
+                            <td>${user.role === 'admin' ? '系统管理员' : (user.role === 'group_admin' ? '组管理员' : '普通用户')}</td>
                             <td>${user.group_name || '-'}</td>
                             <td>${user.created_by}</td>
                             <td>${ui.formatDate(user.created_at)}</td>
@@ -105,6 +107,11 @@ const usersPage = {
         const formContent = ui.createElement('div', {}, [
             ui.createFormGroup('用户名', ui.createTextInput('username', '请输入用户名'), 'username'),
             ui.createFormGroup('密码', ui.createTextInput('password', '请输入密码', '', 'password'), 'password'),
+            ui.createFormGroup('角色', ui.createSelectInput('role', [
+                { value: 'user', text: '普通用户' },
+                { value: 'group_admin', text: '组管理员' },
+                ...(auth.isAdmin() ? [{ value: 'admin', text: '系统管理员' }] : [])
+            ], 'user'), 'role'),
             ui.createFormGroup('用户组', ui.createSelectInput('group_id', [
                 { value: '', text: '-- 选择用户组 --' },
                 ...groups.map(group => ({ value: group.id, text: group.group_name }))
@@ -151,6 +158,11 @@ const usersPage = {
             const formContent = ui.createElement('div', {}, [
                 ui.createFormGroup('用户名', ui.createTextInput('username', '请输入用户名', user.username), 'username'),
                 ui.createFormGroup('密码', ui.createTextInput('password', '请输入新密码（留空保持不变）', '', 'password'), 'password'),
+                user.username !== 'admin' ? ui.createFormGroup('角色', ui.createSelectInput('role', [
+                    { value: 'user', text: '普通用户' },
+                    { value: 'group_admin', text: '组管理员' },
+                    ...(auth.isAdmin() ? [{ value: 'admin', text: '系统管理员' }] : [])
+                ], user.role || 'user'), 'role') : null,
                 user.username !== 'admin' ? ui.createFormGroup('用户组', ui.createSelectInput('group_id', [
                     { value: '', text: '-- 选择用户组 --' },
                     ...groups.map(group => ({ value: group.id, text: group.group_name }))
@@ -166,6 +178,7 @@ const usersPage = {
                 
                 if (user.username !== 'admin') {
                     userData.group_id = formData.get('group_id') || null;
+                    userData.role = formData.get('role') || 'user';
                 }
                 
                 this.updateUser(userId, userData);

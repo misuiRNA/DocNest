@@ -441,6 +441,25 @@ tr:hover {
     font-weight: bold;
 }
 
+/* Role badges */
+.role-badge {
+    display: inline-block;
+    font-size: 0.75rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    color: white;
+    font-weight: 500;
+    margin-left: 0.5rem;
+}
+
+.role-badge.admin {
+    background-color: var(--danger-color);
+}
+
+.role-badge.group-admin {
+    background-color: var(--warning-color);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .header {
