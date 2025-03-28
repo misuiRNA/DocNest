@@ -39,14 +39,22 @@ const auth = {
             }
             document.getElementById('username-display').innerHTML = user.username + roleText;
             
-            // Show admin-only navigation items if user is admin
+            // Show/hide navigation items based on user role
             const adminNavGroups = document.getElementById('admin-nav-groups');
+            const adminNav = document.getElementById('admin-nav');
+            
+            // Groups management (admin only)
             if (user.is_admin) {
-                adminNavGroups.style.display = 'block';
-            } else if (user.role === 'group_admin') {
                 adminNavGroups.style.display = 'block';
             } else {
                 adminNavGroups.style.display = 'none';
+            }
+            
+            // Users management (admin and group_admin)
+            if (user.is_admin || user.role === 'group_admin') {
+                adminNav.style.display = 'block';
+            } else {
+                adminNav.style.display = 'none';
             }
         } else {
             // Hide navigation and user dropdown
@@ -130,7 +138,14 @@ const auth = {
         }
         
         // Admin-only routes
-        if (['groups', 'users'].includes(route)) {
+        if (route === 'groups') {
+            if (!this.isAdmin()) {
+                return false;
+            }
+        }
+        
+        // Admin and group_admin routes
+        if (route === 'users') {
             if (!this.isAdmin() && currentUser.role !== 'group_admin') {
                 return false;
             }

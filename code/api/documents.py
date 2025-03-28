@@ -297,14 +297,19 @@ def delete_document(document_id):
     
     # Check if user has permission to delete document
     if not g.current_user['is_admin']:
-        # Check if user is the uploader
-        if document['uploaded_by'] != g.current_user['id']:
-            # Check if user is in the same group
-            cursor.execute('SELECT group_id FROM users WHERE id = ?', (g.current_user['id'],))
-            user_group_id = cursor.fetchone()['group_id']
+        # Check if user is a group admin
+        cursor.execute('SELECT role, group_id FROM users WHERE id = ?', (g.current_user['id'],))
+        user = cursor.fetchone()
+        user_role = user['role'] if 'role' in user.keys() else 'user'
+        user_group_id = user['group_id']
+        
+        # Only admin and group_admin can delete documents
+        if user_role != 'group_admin':
+            return jsonify({'error': 'Only administrators can delete documents'}), 403
             
-            if not user_group_id or document['group_id'] != user_group_id:
-                return jsonify({'error': 'You do not have permission to delete this document'}), 403
+        # Group admin can only delete documents in their group
+        if not user_group_id or document['group_id'] != user_group_id:
+            return jsonify({'error': 'You do not have permission to delete this document'}), 403
     
     # Delete document
     try:

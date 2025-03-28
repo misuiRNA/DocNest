@@ -70,9 +70,11 @@ const documentsPage = {
                                     <a href="${doc.qrcode_url}" target="_blank" class="btn" title="查看二维码">
                                         <i class="fas fa-qrcode"></i>
                                     </a>
+                                    ${auth.isAdmin() || auth.getUser().role === 'group_admin' ? `
                                     <button class="btn btn-danger" title="删除文档" onclick="documentsPage.deleteDocument(${doc.id})">
                                         <i class="fas fa-trash"></i>
                                     </button>
+                                    ` : ''}
                                 </div>
                             </td>
                         </tr>
