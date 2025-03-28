@@ -188,9 +188,11 @@ def upload_document():
         return jsonify({'error': 'File number can only contain letters, numbers, and -_+ symbols'}), 400
     
     if file and allowed_file(file.filename):
-        # Generate a unique filename
-        original_filename = secure_filename(file.filename)
-        filename = "{}_{}".format(random.randint(10000, 99999), original_filename)
+        # Preserve the original filename with Chinese characters
+        original_filename = file.filename
+        # Generate a secure filename for storage
+        secure_name = secure_filename(file.filename)
+        filename = "{}_{}".format(random.randint(10000, 99999), secure_name)
         file_path = os.path.join(UPLOAD_DIR, filename)
         
         # Save the file
