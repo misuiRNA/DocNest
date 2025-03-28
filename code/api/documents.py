@@ -385,8 +385,11 @@ def view_document(document_id):
     if not document:
         return jsonify({'error': 'Document not found'}), 404
     
-    # Serve PDF file
-    return send_from_directory(UPLOAD_DIR, document['filename'])
+    # Serve PDF file with inline content disposition
+    response = send_from_directory(UPLOAD_DIR, document['filename'], as_attachment=False)
+    response.headers['Content-Disposition'] = 'inline; filename="{}"'.format(document['filename'])
+    response.headers['Content-Type'] = 'application/pdf'
+    return response
 
 # Get QR code route
 @api_bp.route('/documents/<int:document_id>/qrcode')
