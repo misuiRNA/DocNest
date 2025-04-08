@@ -178,7 +178,9 @@
                 scale = containerWidth / viewport.width;
                 
                 // Adjust viewport with new scale
-                const scaledViewport = page.getViewport({ scale: scale });
+                const dpr = window.devicePixelRatio || 1;
+                // scale = Math.max(containerWidth / viewport.width, 1.0);
+                const scaledViewport = page.getViewport({ scale: scale * dpr });
                 
                 // Create canvas for this page
                 const canvas = document.createElement('canvas');
