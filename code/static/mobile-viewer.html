@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -19,15 +19,19 @@
         .header {
             background-color: #2196F3;
             color: white;
-            padding: 10px 15px;
+            padding: 8px 15px;
             text-align: center;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header h1 {
+            font-size: 20px;
+            margin: 0;
         }
         .content {
             flex: 1;
             display: flex;
             flex-direction: column;
-            padding: 15px;
+            padding: 5px;
             overflow-y: auto;
         }
         .pdf-container {
@@ -36,79 +40,61 @@
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             padding: 10px;
-            margin-bottom: 15px;
             overflow: hidden;
-            display: flex;
-            flex-direction: column;
         }
         #pdf-viewer {
             flex: 1;
-            overflow: auto;
+            overflow-y: auto;
             background-color: #f9f9f9;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        .pdf-controls {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            padding: 10px 0;
-            background-color: #f5f5f5;
-            border-bottom: 1px solid #ddd;
-        }
-        .btn {
-            display: inline-block;
-            background-color: #2196F3;
-            color: white;
-            text-align: center;
-            padding: 8px 15px;
-            border-radius: 4px;
-            text-decoration: none;
-            font-weight: bold;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            border: none;
-            cursor: pointer;
-        }
-        .btn-secondary {
-            background-color: #757575;
-        }
-        .footer {
-            padding: 10px;
-            text-align: center;
-            color: #666;
-            background-color: white;
-            border-top: 1px solid #ddd;
-        }
-        .loading {
-            text-align: center;
-            padding: 20px;
-            color: #666;
-        }
-        .page-info {
-            margin: 0 10px;
-            line-height: 36px;
+            height: 100vh;
+            position: relative;
+            padding: 0 10px;
         }
         .canvas-container {
-            margin: 0 auto;
             display: flex;
             flex-direction: column;
             align-items: center;
+            gap: 10px;
+        }
+        .page-container {
+            width: 100%;
+            display: flex;
+            justify-content: center;
         }
         .page-canvas {
-            margin-bottom: 10px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            background: white;
+            width: 100% !important;
+            height: auto !important;
         }
-        .error-message {
-            color: #d32f2f;
-            text-align: center;
-            padding: 20px;
-            background-color: #ffebee;
-            border-radius: 4px;
-            margin: 20px 0;
+        .page-placeholder {
+            width: 100%;
+            height: 800px;
+            background: #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
         }
-        .download-section {
-            text-align: center;
-            margin: 20px 0;
+
+        /* Media Queries for mobile responsiveness */
+        @media (max-width: 600px) {
+            .header {
+                padding: 8px 10px;
+            }
+
+            .header h1 {
+                font-size: 16px;
+            }
+
+            .footer {
+                font-size: 12px;
+                padding: 8px 10px;
+            }
+
+            .content {
+                padding: 3px;
+            }
         }
     </style>
 </head>
@@ -124,170 +110,103 @@
         
         <div id="error-container" class="error-message" style="display: none;">
             <p id="error-message">加载文档时出错</p>
-            <div class="download-section">
-                <a id="download-link" href="" download class="btn">
-                    下载PDF文件
-                </a>
-            </div>
         </div>
         
         <div id="pdf-container" class="pdf-container" style="display: none;">
-            <div class="pdf-controls">
-                <button id="prev-page" class="btn">上一页</button>
-                <span id="page-info" class="page-info">页码: 0 / 0</span>
-                <button id="next-page" class="btn">下一页</button>
-                <!-- <a id="download-btn" href="" download class="btn btn-secondary">下载</a> -->
-            </div>
             <div id="pdf-viewer">
                 <div id="canvas-container" class="canvas-container"></div>
             </div>
         </div>
     </div>
-    
-    <div class="footer">
-        <p>DocNest 文档管理系统</p>
-    </div>
 
     <script>
-        // Set PDF.js worker path
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
         
-        // Variables
         let pdfDoc = null;
-        let pageNum = 1;
-        let pageRendering = false;
-        let pageNumPending = null;
-        let scale = 1.0;
-        
-        // Get document ID from URL
+        let scale = 1.5;
+
         function getDocumentId() {
             const urlParams = new URLSearchParams(window.location.search);
             return urlParams.get('id');
         }
-        
-        // Render the page
+
         function renderPage(num) {
-            pageRendering = true;
-            
-            // Get the page
+            if (document.getElementById(`page-canvas-${num}`)) {
+                return; 
+            }
+
             pdfDoc.getPage(num).then(function(page) {
-                // Calculate scale to fit the page width
-                const viewport = page.getViewport({ scale: 1 });
-                const container = document.getElementById('pdf-viewer');
-                const containerWidth = container.clientWidth - 40; // Subtract padding
-                scale = containerWidth / viewport.width;
-                
-                // Adjust viewport with new scale
+                const viewport = page.getViewport({ scale });
+                const containerWidth = document.getElementById('pdf-viewer').clientWidth - 40;
                 const dpr = window.devicePixelRatio || 1;
-                // scale = Math.max(containerWidth / viewport.width, 1.0);
-                const scaledViewport = page.getViewport({ scale: scale * dpr });
-                
-                // Create canvas for this page
+                const adjustedScale = Math.max(containerWidth / viewport.width, 1.5);
+                const scaledViewport = page.getViewport({ scale: adjustedScale * dpr });
+
                 const canvas = document.createElement('canvas');
                 canvas.className = 'page-canvas';
                 canvas.id = `page-canvas-${num}`;
-                
-                const canvasContainer = document.getElementById('canvas-container');
-                
-                // Clear previous canvas if it exists
-                while (canvasContainer.firstChild) {
-                    canvasContainer.removeChild(canvasContainer.firstChild);
-                }
-                
-                canvasContainer.appendChild(canvas);
-                
-                const context = canvas.getContext('2d');
-                canvas.height = scaledViewport.height;
+                canvas.dataset.page = num;
                 canvas.width = scaledViewport.width;
-                
-                // Render PDF page into canvas context
-                const renderContext = {
-                    canvasContext: context,
-                    viewport: scaledViewport
-                };
-                
-                const renderTask = page.render(renderContext);
-                
-                // Wait for rendering to finish
-                renderTask.promise.then(function() {
-                    pageRendering = false;
-                    
-                    // Update page counters
-                    document.getElementById('page-info').textContent = `页码: ${pageNum} / ${pdfDoc.numPages}`;
-                    
-                    if (pageNumPending !== null) {
-                        // New page rendering is pending
-                        renderPage(pageNumPending);
-                        pageNumPending = null;
-                    }
-                });
+                canvas.height = scaledViewport.height;
+                canvas.style.width = `${scaledViewport.width / dpr}px`;
+                canvas.style.height = `${scaledViewport.height / dpr}px`;
+
+                const placeholder = document.getElementById(`placeholder-${num}`);
+                if (placeholder) {
+                    placeholder.replaceWith(canvas);
+                }
+
+                const context = canvas.getContext('2d');
+                page.render({ canvasContext: context, viewport: scaledViewport });
             });
         }
-        
-        // Go to previous page
-        function previousPage() {
-            if (pageNum <= 1) {
-                return;
-            }
-            pageNum--;
-            queueRenderPage(pageNum);
+
+        function setupLazyLoading() {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const pageNum = parseInt(entry.target.dataset.page);
+                        renderPage(pageNum);
+                    }
+                });
+            }, { root: document.getElementById('pdf-viewer'), threshold: 0.2 });
+
+            document.querySelectorAll('.page-placeholder').forEach(placeholder => {
+                observer.observe(placeholder);
+            });
         }
-        
-        // Go to next page
-        function nextPage() {
-            if (pageNum >= pdfDoc.numPages) {
-                return;
-            }
-            pageNum++;
-            queueRenderPage(pageNum);
-        }
-        
-        // Queue rendering of a page
-        function queueRenderPage(num) {
-            if (pageRendering) {
-                pageNumPending = num;
-            } else {
-                renderPage(num);
-            }
-        }
-        
-        // Load PDF document
+
         function loadPDF(url) {
-            // Show loading
             document.getElementById('loading').style.display = 'block';
             document.getElementById('pdf-container').style.display = 'none';
             document.getElementById('error-container').style.display = 'none';
-            
-            // Set download links
-            // document.getElementById('download-btn').setAttribute('href', url);
-            document.getElementById('download-link').setAttribute('href', url);
-            
-            // Load the PDF
+
             pdfjsLib.getDocument(url).promise.then(function(pdf) {
                 pdfDoc = pdf;
-                pageNum = 1;
-                
-                // Hide loading and show PDF container
+
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('pdf-container').style.display = 'flex';
-                
-                // Initial render
-                renderPage(pageNum);
-                
-                // Set up button events
-                document.getElementById('prev-page').addEventListener('click', previousPage);
-                document.getElementById('next-page').addEventListener('click', nextPage);
-                
+
+                const canvasContainer = document.getElementById('canvas-container');
+                canvasContainer.innerHTML = '';
+
+                for (let i = 1; i <= pdfDoc.numPages; i++) {
+                    const placeholder = document.createElement('div');
+                    placeholder.className = 'page-placeholder';
+                    placeholder.id = `placeholder-${i}`;
+                    placeholder.dataset.page = i;
+                    placeholder.innerText = `加载页面 ${i}...`;
+                    canvasContainer.appendChild(placeholder);
+                }
+
+                setupLazyLoading();
             }).catch(function(error) {
-                // Show error
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('error-container').style.display = 'block';
                 document.getElementById('error-message').textContent = `加载PDF时出错: ${error.message}`;
-                console.error('Error loading PDF:', error);
             });
         }
-        
-        // Initialize
+
         document.addEventListener('DOMContentLoaded', function() {
             const documentId = getDocumentId();
             if (!documentId) {
@@ -296,7 +215,7 @@
                 document.getElementById('error-message').textContent = '未提供文档ID';
                 return;
             }
-            
+
             const pdfUrl = `/api/documents/${documentId}/view`;
             loadPDF(pdfUrl);
         });
