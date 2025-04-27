@@ -72,7 +72,7 @@ def get_db():
                     file_number TEXT NOT NULL,
                     filename TEXT NOT NULL,
                     original_filename TEXT NOT NULL,
-                    extraction_code TEXT NOT NULL,
+                    inspection_date TEXT NOT NULL,
                     group_id INTEGER,
                     uploaded_by INTEGER,
                     upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP

@@ -18,6 +18,10 @@ const uploadPage = {
                         <input type="text" id="file_number" name="file_number" class="form-input" required>
                         <small style="color: var(--gray-color);">文件编号只能包含字母、数字和 -_+ 符号</small>
                     </div>
+                    <div class="form-group">
+                        <label for="inspection_date" class="form-label">检测日期</label>
+                        <input type="date" id="inspection_date" name="inspection_date" class="form-input" required>
+                    </div>
                     <div class="file-input-container">
                         <label for="file" class="file-input-label">
                             <i class="fas fa-file-pdf"></i>
@@ -85,12 +89,18 @@ const uploadPage = {
         
         // Get form data
         const fileNumber = document.getElementById('file_number').value;
+        const inspectionDate = document.getElementById('inspection_date').value;
         const fileInput = document.getElementById('file');
         const file = fileInput.files[0];
         
         // Validate form data
         if (!fileNumber) {
             showError('请输入文件编号');
+            return;
+        }
+        
+        if (!inspectionDate) {
+            showError('请选择检测日期');
             return;
         }
         
@@ -121,6 +131,7 @@ const uploadPage = {
             // Create form data
             const formData = new FormData();
             formData.append('file_number', fileNumber);
+            formData.append('inspection_date', inspectionDate);
             formData.append('file', file);
             
             // Upload document
@@ -144,7 +155,6 @@ const uploadPage = {
     // Show upload success
     showUploadSuccess: function(data) {
         const document = data.document;
-        const extractionCode = data.extraction_code;
         
         // Create success content
         const successContent = `
@@ -160,7 +170,7 @@ const uploadPage = {
                         <strong>文件名：</strong> ${document.original_filename}
                     </div>
                     <div style="margin-bottom: 1rem;">
-                        <strong>提取码：</strong> <span class="extraction-code">${extractionCode}</span>
+                        <strong>检测日期：</strong> ${document.inspection_date}
                     </div>
                     <div style="margin-bottom: 1rem;">
                         <strong>上传时间：</strong> ${ui.formatDate(document.upload_date)}

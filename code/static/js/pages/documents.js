@@ -44,7 +44,7 @@ const documentsPage = {
                                 <tr>
                                     <th>文件编号</th>
                                     <th>文件名</th>
-                                    <th>提取码</th>
+                                    <th>检测日期</th>
                                     <th>上传者</th>
                                     <th>上传时间</th>
                                     <th>操作</th>
@@ -59,7 +59,7 @@ const documentsPage = {
                         <tr>
                             <td>${doc.file_number}</td>
                             <td>${doc.original_filename}</td>
-                            <td><span class="extraction-code">${doc.extraction_code}</span></td>
+                            <td>${doc.inspection_date}</td>
                             <td>${doc.uploader || '-'}</td>
                             <td>${ui.formatDate(doc.upload_date)}</td>
                             <td>

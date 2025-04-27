@@ -4,96 +4,111 @@
 
 const viewPage = {
     // Render view page
-    render: async function(params) {
+    render: async function() {
         // Set page title
         ui.setTitle('查看文档');
         
-        // Check if document ID is provided
-        if (!params || !params.id) {
-            ui.showError('未提供文档 ID');
+        // Create view form
+        const viewForm = `
+            <div class="card">
+                <h2>查看文档</h2>
+                <form id="view-form">
+                    <div class="form-group">
+                        <label for="file_number" class="form-label">文件编号</label>
+                        <input type="text" id="file_number" name="file_number" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="inspection_date" class="form-label">检测日期</label>
+                        <input type="date" id="inspection_date" name="inspection_date" class="form-input" required>
+                    </div>
+                    <button type="submit" class="btn">
+                        <i class="fas fa-search"></i> 查询文档
+                    </button>
+                </form>
+            </div>
+        `;
+        
+        // Render view form
+        ui.render(viewForm);
+        
+        // Add event listener to view form
+        document.getElementById('view-form').addEventListener('submit', this.handleView.bind(this));
+    },
+    
+    // Handle view form submission
+    handleView: async function(event) {
+        event.preventDefault();
+        
+        // Get form data
+        const fileNumber = document.getElementById('file_number').value;
+        const inspectionDate = document.getElementById('inspection_date').value;
+        
+        // Validate form data
+        if (!fileNumber) {
+            showError('请输入文件编号');
             return;
         }
         
-        const documentId = params.id;
+        if (!inspectionDate) {
+            showError('请选择检测日期');
+            return;
+        }
         
+        const submitButton = event.target.querySelector('button[type="submit"]');
+        const originalText = submitButton.innerHTML;
         try {
-            // Get document
-            const data = await api.getDocument(documentId);
-            const document = data.document;
+            // Show loading state
+            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 查询中...';
+            submitButton.disabled = true;
             
-            // Create view content
-            const viewContent = `
-                <div class="card">
-                    <h2>查看文档</h2>
-                    <p>以下是文档详情：</p>
-                    
-                    <div style="margin: 2rem 0; padding: 1.5rem; background-color: var(--light-color); border-radius: 4px;">
-                        <div style="margin-bottom: 1rem;">
-                            <strong>文件编号：</strong> ${document.file_number}
-                        </div>
-                        <div style="margin-bottom: 1rem;">
-                            <strong>文件名：</strong> ${document.original_filename}
-                        </div>
-                        <div style="margin-bottom: 1rem;">
-                            <strong>提取码：</strong> <span class="extraction-code">${document.extraction_code}</span>
-                        </div>
-                        <div style="margin-bottom: 1rem;">
-                            <strong>上传者：</strong> ${document.uploader || '-'}
-                        </div>
-                        <div style="margin-bottom: 1rem;">
-                            <strong>上传时间：</strong> ${ui.formatDate(document.upload_date)}
-                        </div>
-                        <div style="margin-bottom: 1rem;">
-                            <strong>用户组：</strong> ${document.group_name || '-'}
-                        </div>
-                    </div>
-                    
-                    <div style="margin-bottom: 2rem;">
-                        <iframe src="${document.view_url}" width="100%" height="500" style="border: 1px solid var(--border-color); border-radius: 4px;"></iframe>
-                    </div>
-                    
-                    <div style="display: flex; gap: 1rem;">
-                        <a href="${document.view_url}" target="_blank" class="btn">
-                            <i class="fas fa-external-link-alt"></i> 在新窗口打开
-                        </a>
-                        <a href="${document.qrcode_url}" target="_blank" class="btn">
-                            <i class="fas fa-qrcode"></i> 查看二维码
-                        </a>
-                        <a href="#documents" class="btn">
-                            <i class="fas fa-list"></i> 返回文档列表
-                        </a>
-                        <button class="btn btn-danger" onclick="viewPage.deleteDocument(${document.id})">
-                            <i class="fas fa-trash"></i> 删除文档
-                        </button>
-                    </div>
-                </div>
-            `;
+            // Query document
+            const data = await api.queryDocument(fileNumber, inspectionDate);
             
-            // Render view content
-            ui.render(viewContent);
+            // Show document details
+            this.showDocumentDetails(data.document);
         } catch (error) {
-            console.error('Error loading document:', error);
-            ui.showError('加载文档失败: ' + error.message);
+            console.error('Query error:', error);
+            showError('查询失败: ' + error.message);
+            
+            // Reset button
+            submitButton.innerHTML = originalText;
+            submitButton.disabled = false;
         }
     },
     
-    // Delete document
-    deleteDocument: function(documentId) {
-        // Show confirmation modal
-        confirmModal('确定要删除此文档吗？此操作不可撤销。', async () => {
-            try {
-                // Delete document
-                await api.deleteDocument(documentId);
+    // Show document details
+    showDocumentDetails: function(document) {
+        // Create document details content
+        const documentDetails = `
+            <div class="card">
+                <h2>文档详情</h2>
+                <div style="margin: 2rem 0; padding: 1.5rem; background-color: var(--light-color); border-radius: 4px;">
+                    <div style="margin-bottom: 1rem;">
+                        <strong>文件编号：</strong> ${document.file_number}
+                    </div>
+                    <div style="margin-bottom: 1rem;">
+                        <strong>文件名：</strong> ${document.original_filename}
+                    </div>
+                    <div style="margin-bottom: 1rem;">
+                        <strong>检测日期：</strong> ${document.inspection_date}
+                    </div>
+                    <div style="margin-bottom: 1rem;">
+                        <strong>上传时间：</strong> ${ui.formatDate(document.upload_date)}
+                    </div>
+                </div>
                 
-                // Show success message
-                showSuccess('文档删除成功');
-                
-                // Redirect to documents page
-                window.location.hash = 'documents';
-            } catch (error) {
-                console.error('Error deleting document:', error);
-                showError('删除文档失败: ' + error.message);
-            }
-        });
+                <div style="display: flex; gap: 1rem;">
+                    <a href="${document.view_url}" target="_blank" class="btn">
+                        <i class="fas fa-eye"></i> 查看文档
+                    </a>
+                    <a href="#documents" class="btn">
+                        <i class="fas fa-list"></i> 返回文档列表
+                    </a>
+                </div>
+            </div>
+        `;
+        
+        // Render document details
+        ui.render(documentDetails);
     }
 };

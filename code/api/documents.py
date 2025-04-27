@@ -21,9 +21,6 @@ QRCODE_DIR = 'static/qrcodes'
 # Allowed file extensions
 ALLOWED_EXTENSIONS = {'pdf'}
 
-# Generate a random 4-digit extraction code
-def generate_extraction_code():
-    return ''.join(random.choice(string.digits) for _ in range(4))
 
 # Generate QR code for a document
 def generate_qr_code(document_id, filename):
@@ -40,8 +37,13 @@ def generate_qr_code(document_id, filename):
     qr.add_data(mobile_viewer_url)
     qr.make(fit=True)
     
+    # Ensure QR code directory exists
+    qrcode_dir = os.path.join(current_app.root_path, QRCODE_DIR)
+    os.makedirs(qrcode_dir, exist_ok=True)
+    
     img = qr.make_image(fill_color="black", back_color="white")
-    qr_path = os.path.join(QRCODE_DIR, "{}.png".format(filename.split('.')[0]))
+    qr_filename = "{}.png".format(filename.split('.')[0])
+    qr_path = os.path.join(current_app.root_path, QRCODE_DIR, qr_filename)
     img.save(qr_path)
     return qr_path
 
@@ -61,7 +63,7 @@ def get_documents():
     if g.current_user['is_admin']:
         # Admin can see all documents
         cursor.execute('''
-            SELECT d.id, d.file_number, d.original_filename, d.filename, d.extraction_code, d.upload_date, 
+            SELECT d.id, d.file_number, d.original_filename, d.filename, d.inspection_date, d.upload_date, 
                    u.username as uploader, g.group_name
             FROM documents d
             LEFT JOIN users u ON d.uploaded_by = u.id
@@ -76,7 +78,7 @@ def get_documents():
         if group_id:
             # User belongs to a group
             cursor.execute('''
-                SELECT d.id, d.file_number, d.original_filename, d.filename, d.extraction_code, d.upload_date, 
+                SELECT d.id, d.file_number, d.original_filename, d.filename, d.inspection_date, d.upload_date, 
                        u.username as uploader, g.group_name
                 FROM documents d
                 LEFT JOIN users u ON d.uploaded_by = u.id
@@ -87,7 +89,7 @@ def get_documents():
         else:
             # User doesn't belong to any group
             cursor.execute('''
-                SELECT d.id, d.file_number, d.original_filename, d.filename, d.extraction_code, d.upload_date, 
+                SELECT d.id, d.file_number, d.original_filename, d.filename, d.inspection_date, d.upload_date, 
                        u.username as uploader, g.group_name
                 FROM documents d
                 LEFT JOIN users u ON d.uploaded_by = u.id
@@ -105,7 +107,7 @@ def get_documents():
             'id': doc['id'],
             'file_number': doc['file_number'],
             'original_filename': doc['original_filename'],
-            'extraction_code': doc['extraction_code'],
+            'inspection_date': doc['inspection_date'],
             'upload_date': doc['upload_date'],
             'uploader': doc['uploader'],
             'group_name': doc['group_name'],
@@ -125,7 +127,7 @@ def get_document(document_id):
     
     # Get document
     cursor.execute('''
-        SELECT d.id, d.file_number, d.original_filename, d.filename, d.extraction_code, d.upload_date, 
+        SELECT d.id, d.file_number, d.original_filename, d.filename, d.inspection_date, d.upload_date, 
                d.group_id, d.uploaded_by, u.username as uploader, g.group_name
         FROM documents d
         LEFT JOIN users u ON d.uploaded_by = u.id
@@ -155,7 +157,7 @@ def get_document(document_id):
         'file_number': document['file_number'],
         'original_filename': document['original_filename'],
         'filename': document['filename'],
-        'extraction_code': document['extraction_code'],
+        'inspection_date': document['inspection_date'],
         'upload_date': document['upload_date'],
         'group_id': document['group_id'],
         'group_name': document['group_name'],
@@ -177,6 +179,7 @@ def upload_document():
     
     file = request.files['file']
     file_number = request.form.get('file_number', '')
+    inspection_date = request.form.get('inspection_date', '')
     
     if file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
@@ -184,23 +187,29 @@ def upload_document():
     if not file_number:
         return jsonify({'error': 'File number is required'}), 400
     
+    if not inspection_date:
+        return jsonify({'error': 'Inspection date is required'}), 400
+    
     # Validate file number (only letters and numbers allowed)
     if not re.fullmatch(r"[a-zA-Z0-9\-_+]+", file_number):
         return jsonify({'error': 'File number can only contain letters, numbers, and -_+ symbols'}), 400
     
     if file and allowed_file(file.filename):
+        # Get absolute path to upload directory
+        upload_dir = os.path.join(current_app.root_path, UPLOAD_DIR)
+        
+        # Ensure upload directory exists
+        os.makedirs(upload_dir, exist_ok=True)
+        
         # Preserve the original filename with Chinese characters
         original_filename = file.filename
         # Generate a secure filename for storage
         secure_name = secure_filename(file.filename)
         filename = "{}_{}".format(random.randint(10000, 99999), secure_name)
-        file_path = os.path.join(UPLOAD_DIR, filename)
+        file_path = os.path.join(upload_dir, filename)
         
         # Save the file
         file.save(file_path)
-        
-        # Generate extraction code
-        extraction_code = generate_extraction_code()
         
         # Connect to database
         conn = get_db()
@@ -228,8 +237,8 @@ def upload_document():
         try:
             # Insert document record
             cursor.execute(
-                'INSERT INTO documents (file_number, filename, original_filename, extraction_code, group_id, uploaded_by) VALUES (?, ?, ?, ?, ?, ?)',
-                (file_number, filename, original_filename, extraction_code, group_id, g.current_user['id'])
+                'INSERT INTO documents (file_number, filename, original_filename, inspection_date, group_id, uploaded_by) VALUES (?, ?, ?, ?, ?, ?)',
+                (file_number, filename, original_filename, inspection_date, group_id, g.current_user['id'])
             )
             
             document_id = cursor.lastrowid
@@ -240,7 +249,7 @@ def upload_document():
             
             # Get document details
             cursor.execute('''
-                SELECT d.id, d.file_number, d.original_filename, d.filename, d.extraction_code, d.upload_date, 
+                SELECT d.id, d.file_number, d.original_filename, d.filename, d.inspection_date, d.upload_date, 
                        d.group_id, d.uploaded_by, u.username as uploader, g.group_name
                 FROM documents d
                 LEFT JOIN users u ON d.uploaded_by = u.id
@@ -256,6 +265,7 @@ def upload_document():
                 'file_number': document['file_number'],
                 'original_filename': document['original_filename'],
                 'filename': document['filename'],
+                'inspection_date': document['inspection_date'],
                 'upload_date': document['upload_date'],
                 'group_id': document['group_id'],
                 'group_name': document['group_name'],
@@ -267,8 +277,7 @@ def upload_document():
             
             return jsonify({
                 'message': 'Document uploaded successfully',
-                'document': document_dict,
-                'extraction_code': extraction_code
+                'document': document_dict
             }), 201
         except Exception as e:
             conn.rollback()
@@ -315,13 +324,13 @@ def delete_document(document_id):
     # Delete document
     try:
         # Delete file
-        file_path = os.path.join(UPLOAD_DIR, document['filename'])
+        file_path = os.path.join(current_app.root_path, UPLOAD_DIR, document['filename'])
         if os.path.exists(file_path):
             os.remove(file_path)
         
         # Delete QR code
         qr_filename = "{}.png".format(document['filename'].split('.')[0])
-        qr_path = os.path.join(QRCODE_DIR, qr_filename)
+        qr_path = os.path.join(current_app.root_path, QRCODE_DIR, qr_filename)
         if os.path.exists(qr_path):
             os.remove(qr_path)
         
@@ -339,11 +348,11 @@ def delete_document(document_id):
 def query_document():
     data = request.get_json()
     
-    if not data or not data.get('file_number') or not data.get('extraction_code'):
-        return jsonify({'error': 'File number and extraction code are required'}), 400
+    if not data or not data.get('file_number') or not data.get('inspection_date'):
+        return jsonify({'error': 'File number and inspection date are required'}), 400
     
     file_number = data.get('file_number')
-    extraction_code = data.get('extraction_code')
+    inspection_date = data.get('inspection_date')
     
     # Connect to database
     conn = get_db()
@@ -351,21 +360,22 @@ def query_document():
     
     # Get document
     cursor.execute('''
-        SELECT d.id, d.file_number, d.original_filename, d.filename, d.upload_date
+        SELECT d.id, d.file_number, d.original_filename, d.filename, d.inspection_date, d.upload_date
         FROM documents d
-        WHERE d.file_number = ? AND d.extraction_code = ?
-    ''', (file_number, extraction_code))
+        WHERE d.file_number = ? AND d.inspection_date = ?
+    ''', (file_number, inspection_date))
     
     document = cursor.fetchone()
     
     if not document:
-        return jsonify({'error': 'Invalid file number or extraction code'}), 404
+        return jsonify({'error': 'Invalid file number or inspection date'}), 404
     
     # Convert to dictionary
     document_dict = {
         'id': document['id'],
         'file_number': document['file_number'],
         'original_filename': document['original_filename'],
+        'inspection_date': document['inspection_date'],
         'upload_date': document['upload_date'],
         'view_url': url_for('api.view_document', document_id=document['id'], _external=True)
     }
@@ -387,7 +397,7 @@ def view_document(document_id):
         return jsonify({'error': 'Document not found'}), 404
     
     # Serve PDF file with inline content disposition
-    response = send_from_directory(UPLOAD_DIR, document['filename'], as_attachment=False)
+    response = send_from_directory(os.path.join(current_app.root_path, UPLOAD_DIR), document['filename'], as_attachment=False)
     response.headers['Content-Disposition'] = 'inline; filename="{}"'.format(document['filename'])
     response.headers['Content-Type'] = 'application/pdf'
     return response
@@ -408,10 +418,14 @@ def get_qrcode(document_id):
     
     # Generate QR code if it doesn't exist
     qr_filename = "{}.png".format(document['filename'].split('.')[0])
-    qr_path = os.path.join(QRCODE_DIR, qr_filename)
+    qr_path = os.path.join(current_app.root_path, QRCODE_DIR, qr_filename)
     
     if not os.path.exists(qr_path):
         generate_qr_code(document_id, document['filename'])
     
+    # Ensure QR code directory exists
+    qrcode_dir = os.path.join(current_app.root_path, QRCODE_DIR)
+    os.makedirs(qrcode_dir, exist_ok=True)
+    
     # Serve QR code
-    return send_from_directory(QRCODE_DIR, qr_filename)
+    return send_from_directory(os.path.join(current_app.root_path, QRCODE_DIR), qr_filename)

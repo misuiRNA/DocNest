@@ -269,11 +269,11 @@ const api = {
         return this.handleResponse(response);
     },
     
-    async queryDocument(fileNumber, extractionCode) {
+    async queryDocument(fileNumber, inspectionDate) {
         const response = await fetch(API_BASE_URL + API_ENDPOINTS.DOCUMENT_QUERY, {
             method: 'POST',
             headers: this.getHeaders(),
-            body: JSON.stringify({ file_number: fileNumber, extraction_code: extractionCode })
+            body: JSON.stringify({ file_number: fileNumber, inspection_date: inspectionDate })
         });
         
         return this.handleResponse(response);
