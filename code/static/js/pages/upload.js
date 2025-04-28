@@ -377,6 +377,9 @@ const uploadPage = {
                     <a href="#documents" class="btn">
                         <i class="fas fa-list"></i> 返回文档列表
                     </a>
+                    <button class="btn" onclick="window.location.reload()">
+                        <i class="fas fa-plus"></i> 继续上传
+                    </button>
                 </div>
             </div>
         `;
