@@ -269,6 +269,15 @@ const api = {
         return this.handleResponse(response);
     },
     
+    async toggleDocumentVisibility(id) {
+        const response = await fetch(API_BASE_URL + API_ENDPOINTS.DOCUMENT(id) + '/visibility', {
+            method: 'PUT',
+            headers: this.getHeaders()
+        });
+        
+        return this.handleResponse(response);
+    },
+    
     async queryDocument(fileNumber, inspectionDate) {
         const response = await fetch(API_BASE_URL + API_ENDPOINTS.DOCUMENT_QUERY, {
             method: 'POST',

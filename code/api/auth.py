@@ -75,7 +75,8 @@ def get_db():
                     inspection_date TEXT NOT NULL,
                     group_id INTEGER,
                     uploaded_by INTEGER,
-                    upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    is_visible INTEGER DEFAULT 1
                 )
             ''')
             

@@ -64,7 +64,7 @@ def get_documents():
         # Admin can see all documents
         cursor.execute('''
             SELECT d.id, d.file_number, d.original_filename, d.filename, d.inspection_date, d.upload_date, 
-                   u.username as uploader, g.group_name
+                   u.username as uploader, g.group_name, d.is_visible
             FROM documents d
             LEFT JOIN users u ON d.uploaded_by = u.id
             LEFT JOIN user_groups g ON d.group_id = g.id
@@ -79,7 +79,7 @@ def get_documents():
             # User belongs to a group
             cursor.execute('''
                 SELECT d.id, d.file_number, d.original_filename, d.filename, d.inspection_date, d.upload_date, 
-                       u.username as uploader, g.group_name
+                       u.username as uploader, g.group_name, d.is_visible
                 FROM documents d
                 LEFT JOIN users u ON d.uploaded_by = u.id
                 LEFT JOIN user_groups g ON d.group_id = g.id
@@ -90,7 +90,7 @@ def get_documents():
             # User doesn't belong to any group
             cursor.execute('''
                 SELECT d.id, d.file_number, d.original_filename, d.filename, d.inspection_date, d.upload_date, 
-                       u.username as uploader, g.group_name
+                       u.username as uploader, g.group_name, d.is_visible
                 FROM documents d
                 LEFT JOIN users u ON d.uploaded_by = u.id
                 LEFT JOIN user_groups g ON d.group_id = g.id
@@ -112,7 +112,8 @@ def get_documents():
             'uploader': doc['uploader'],
             'group_name': doc['group_name'],
             'view_url': url_for('api.view_document', document_id=doc['id'], _external=True),
-            'qrcode_url': url_for('api.get_qrcode', document_id=doc['id'], _external=True)
+            'qrcode_url': url_for('api.get_qrcode', document_id=doc['id'], _external=True),
+            'is_visible': doc['is_visible']
         })
     
     return jsonify({'documents': documents_list})
@@ -128,7 +129,7 @@ def get_document(document_id):
     # Get document
     cursor.execute('''
         SELECT d.id, d.file_number, d.original_filename, d.filename, d.inspection_date, d.upload_date, 
-               d.group_id, d.uploaded_by, u.username as uploader, g.group_name
+               d.group_id, d.uploaded_by, u.username as uploader, g.group_name, d.is_visible
         FROM documents d
         LEFT JOIN users u ON d.uploaded_by = u.id
         LEFT JOIN user_groups g ON d.group_id = g.id
@@ -164,7 +165,8 @@ def get_document(document_id):
         'uploaded_by': document['uploaded_by'],
         'uploader': document['uploader'],
         'view_url': url_for('api.view_document', document_id=document['id'], _external=True),
-        'qrcode_url': url_for('api.get_qrcode', document_id=document['id'], _external=True)
+        'qrcode_url': url_for('api.get_qrcode', document_id=document['id'], _external=True),
+        'is_visible': document['is_visible']
     }
     
     return jsonify({'document': document_dict})
@@ -250,7 +252,7 @@ def upload_document():
             # Get document details
             cursor.execute('''
                 SELECT d.id, d.file_number, d.original_filename, d.filename, d.inspection_date, d.upload_date, 
-                       d.group_id, d.uploaded_by, u.username as uploader, g.group_name
+                       d.group_id, d.uploaded_by, u.username as uploader, g.group_name, d.is_visible
                 FROM documents d
                 LEFT JOIN users u ON d.uploaded_by = u.id
                 LEFT JOIN user_groups g ON d.group_id = g.id
@@ -272,7 +274,8 @@ def upload_document():
                 'uploaded_by': document['uploaded_by'],
                 'uploader': document['uploader'],
                 'view_url': url_for('api.view_document', document_id=document['id'], _external=True),
-                'qrcode_url': url_for('api.get_qrcode', document_id=document['id'], _external=True)
+                'qrcode_url': url_for('api.get_qrcode', document_id=document['id'], _external=True),
+                'is_visible': document['is_visible']
             }
             
             return jsonify({
@@ -343,6 +346,51 @@ def delete_document(document_id):
         conn.rollback()
         return jsonify({'error': str(e)}), 500
 
+# Toggle document visibility route
+@api_bp.route('/documents/<int:document_id>/visibility', methods=['PUT'])
+@token_required
+def toggle_document_visibility(document_id):
+    # Connect to database
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    # Get document
+    cursor.execute('SELECT * FROM documents WHERE id = ?', (document_id,))
+    document = cursor.fetchone()
+    
+    if not document:
+        return jsonify({'error': 'Document not found'}), 404
+    
+    # Check if user has permission to toggle visibility
+    if not g.current_user['is_admin']:
+        # Check if user is a group admin
+        cursor.execute('SELECT role, group_id FROM users WHERE id = ?', (g.current_user['id'],))
+        user = cursor.fetchone()
+        user_role = user['role'] if 'role' in user.keys() else 'user'
+        user_group_id = user['group_id']
+        
+        # Only admin and group_admin can toggle visibility
+        if user_role != 'group_admin':
+            return jsonify({'error': 'Only administrators can toggle document visibility'}), 403
+            
+        # Group admin can only toggle visibility for documents in their group
+        if not user_group_id or document['group_id'] != user_group_id:
+            return jsonify({'error': 'You do not have permission to toggle visibility for this document'}), 403
+    
+    try:
+        # Toggle visibility
+        new_visibility = 0 if document['is_visible'] else 1
+        cursor.execute('UPDATE documents SET is_visible = ? WHERE id = ?', (new_visibility, document_id))
+        conn.commit()
+        
+        return jsonify({
+            'message': 'Document visibility updated successfully',
+            'is_visible': new_visibility
+        })
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
 # Query document route
 @api_bp.route('/documents/query', methods=['POST'])
 def query_document():
@@ -362,7 +410,7 @@ def query_document():
     cursor.execute('''
         SELECT d.id, d.file_number, d.original_filename, d.filename, d.inspection_date, d.upload_date
         FROM documents d
-        WHERE d.file_number = ? AND d.inspection_date = ?
+        WHERE d.file_number = ? AND d.inspection_date = ? AND d.is_visible = 1
     ''', (file_number, inspection_date))
     
     document = cursor.fetchone()

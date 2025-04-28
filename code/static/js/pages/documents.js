@@ -71,6 +71,11 @@ const documentsPage = {
                                         <i class="fas fa-qrcode"></i>
                                     </button>
                                     ${auth.isAdmin() || auth.getUser().role === 'group_admin' ? `
+                                    <button class="btn ${doc.is_visible ? 'btn-success' : 'btn-warning'}" title="${doc.is_visible ? '隐藏文档' : '显示文档'}" onclick="documentsPage.toggleVisibility(${doc.id}, ${doc.is_visible})">
+                                        <i class="fas ${doc.is_visible ? 'fa-eye' : 'fa-eye-slash'}"></i>
+                                    </button>
+                                    ` : ''}
+                                    ${auth.isAdmin() || auth.getUser().role === 'group_admin' ? `
                                     <button class="btn btn-danger" title="删除文档" onclick="documentsPage.deleteDocument(${doc.id})">
                                         <i class="fas fa-trash"></i>
                                     </button>
@@ -136,5 +141,25 @@ const documentsPage = {
         
         // Open modal
         openModal(modalContent);
+    },
+    
+    // Toggle document visibility
+    toggleVisibility: function(documentId, currentVisibility) {
+        // Show confirmation modal
+        confirmModal(`确定要${currentVisibility ? '隐藏' : '显示'}此文档吗？`, async () => {
+            try {
+                // Toggle visibility
+                await api.toggleDocumentVisibility(documentId);
+                
+                // Show success message
+                showSuccess(`文档已${currentVisibility ? '隐藏' : '显示'}`);
+                
+                // Reload documents
+                this.render();
+            } catch (error) {
+                console.error('Error toggling document visibility:', error);
+                showError('切换文档可见性失败: ' + error.message);
+            }
+        });
     }
 };
