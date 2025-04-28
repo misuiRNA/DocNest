@@ -418,6 +418,13 @@ def query_document():
     if not document:
         return jsonify({'error': 'Invalid file number or inspection date'}), 404
     
+    # Ensure QR code is valid
+    qr_filename = "{}.png".format(document['filename'].split('.')[0])
+    qr_path = os.path.join(current_app.root_path, QRCODE_DIR, qr_filename)
+    
+    if should_regenerate_qr_code(document['id'], qr_path):
+        generate_qr_code(document['id'], document['filename'])
+    
     # Convert to dictionary
     document_dict = {
         'id': document['id'],
@@ -425,7 +432,8 @@ def query_document():
         'original_filename': document['original_filename'],
         'inspection_date': document['inspection_date'],
         'upload_date': document['upload_date'],
-        'view_url': url_for('api.view_document', document_id=document['id'], _external=True)
+        'view_url': url_for('api.view_document', document_id=document['id'], _external=True),
+        'qrcode_url': url_for('api.get_qrcode', document_id=document['id'], _external=True)
     }
     
     return jsonify({'document': document_dict})
@@ -464,11 +472,11 @@ def get_qrcode(document_id):
     if not document:
         return jsonify({'error': 'Document not found'}), 404
     
-    # Generate QR code if it doesn't exist
+    # Generate QR code if it doesn't exist or needs to be regenerated
     qr_filename = "{}.png".format(document['filename'].split('.')[0])
     qr_path = os.path.join(current_app.root_path, QRCODE_DIR, qr_filename)
     
-    if not os.path.exists(qr_path):
+    if should_regenerate_qr_code(document_id, qr_path):
         generate_qr_code(document_id, document['filename'])
     
     # Ensure QR code directory exists
@@ -477,3 +485,25 @@ def get_qrcode(document_id):
     
     # Serve QR code
     return send_from_directory(os.path.join(current_app.root_path, QRCODE_DIR), qr_filename)
+
+def should_regenerate_qr_code(document_id, qr_path):
+    # Check if QR code file exists
+    if not os.path.exists(qr_path):
+        return True
+    
+    # Check if QR code is valid by reading its content
+    try:
+        qr = qrcode.QRCode()
+        qr.add_data(f"{request.url_root.rstrip('/')}/mobile-viewer.html?id={document_id}")
+        qr.make(fit=True)
+        
+        # Read existing QR code
+        existing_qr = qrcode.QRCode()
+        img = qrcode.image.pil.PilImage.open(qr_path)
+        existing_qr.add_data(img.getdata())
+        existing_qr.make(fit=True)
+        
+        # Compare the data
+        return qr.data != existing_qr.data
+    except Exception:
+        return True
