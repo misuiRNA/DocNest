@@ -294,35 +294,43 @@ const queryPage = {
     
     // Show document details
     showDocumentDetails: function(document) {
+        // Check if user is logged in by checking if they can access documents page
+        const isLoggedIn = auth.isLoggedIn();
+        
         // Create document details content
         const documentDetails = `
-            <div class="card">
-                <h2>文档详情</h2>
-                <div style="margin: 2rem 0; padding: 1.5rem; background-color: var(--light-color); border-radius: 4px;">
-                    <div style="margin-bottom: 1rem;">
-                        <strong>文件编号：</strong> ${document.file_number}
+            <div class="card" style="margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: ${isLoggedIn ? 'space-between' : 'flex-start'}; align-items: center; padding: 0.5rem;">
+                    <div style="display: flex; gap: 2rem;">
+                        <div>
+                            <small style="color: var(--text-muted);">文件编号</small>
+                            <div>${document.file_number}</div>
+                        </div>
+                        <div>
+                            <small style="color: var(--text-muted);">文件名</small>
+                            <div>${document.original_filename}</div>
+                        </div>
+                        <div>
+                            <small style="color: var(--text-muted);">检测日期</small>
+                            <div>${document.inspection_date}</div>
+                        </div>
+                        <div>
+                            <small style="color: var(--text-muted);">上传时间</small>
+                            <div>${ui.formatDate(document.upload_date)}</div>
+                        </div>
                     </div>
-                    <div style="margin-bottom: 1rem;">
-                        <strong>文件名：</strong> ${document.original_filename}
-                    </div>
-                    <div style="margin-bottom: 1rem;">
-                        <strong>检测日期：</strong> ${document.inspection_date}
-                    </div>
-                    <div style="margin-bottom: 1rem;">
-                        <strong>上传时间：</strong> ${ui.formatDate(document.upload_date)}
-                    </div>
+                    ${isLoggedIn ? `
+                        <div>
+                            <a href="#documents" class="btn btn-sm">
+                                <i class="fas fa-list"></i> 返回列表
+                            </a>
+                        </div>
+                    ` : ''}
                 </div>
-                
-                <div style="margin-top: 2rem;">
-                    <h3>文档内容</h3>
-                    <iframe src="${document.view_url}" width="100%" height="600px" frameborder="0"></iframe>
-                </div>
-                
-                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
-                    <a href="#documents" class="btn">
-                        <i class="fas fa-list"></i> 返回文档列表
-                    </a>
-                </div>
+            </div>
+            
+            <div class="card" style="height: calc(100vh - 200px);">
+                <iframe src="${document.view_url}" style="width: 100%; height: 100%; border: none;"></iframe>
             </div>
         `;
         
