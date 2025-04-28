@@ -37,6 +37,14 @@ const queryPage = {
                     </a>
                 </p>
             </div>
+            
+            <div class="card" style="margin-top: 2rem; text-align: center;">
+                <h2>手机扫码查询</h2>
+                <div style="margin: 1rem 0;">
+                    <img id="mobile-qr-code" style="max-width: 200px; margin: 0 auto;" alt="手机扫码查询">
+                </div>
+                <p style="color: var(--gray-color);">使用手机扫描二维码，在手机上查询文档</p>
+            </div>
         `;
         
         // Render query form
@@ -50,6 +58,11 @@ const queryPage = {
 
         // 优化：自定义日历面板和日期输入
         this.initDatePicker('inspection_date');
+        
+        // Generate QR code for mobile query page
+        const qrCodeImg = document.getElementById('mobile-qr-code');
+        const mobileQueryUrl = window.location.origin + '/#mobile-query';
+        qrCodeImg.src = await api.generateQRCode(mobileQueryUrl);
         
         // Add CSS for date picker
         const style = document.createElement('style');

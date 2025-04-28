@@ -4,7 +4,8 @@ import random
 import string
 import sqlite3
 import qrcode
-from flask import request, jsonify, g, send_from_directory, current_app, url_for
+import io
+from flask import request, jsonify, g, send_from_directory, current_app, url_for, send_file
 from werkzeug.utils import secure_filename
 from . import api_bp
 from .auth import token_required, admin_required, get_db
@@ -507,3 +508,36 @@ def should_regenerate_qr_code(document_id, qr_path):
         return qr.data != existing_qr.data
     except Exception:
         return True
+
+# Generate QR code route
+@api_bp.route('/qrcode', methods=['POST'])
+def generate_qrcode():
+    data = request.get_json()
+    if not data or 'text' not in data:
+        return jsonify({'error': 'Text is required'}), 400
+    
+    text = data['text']
+    
+    # Create QR code
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(text)
+    qr.make(fit=True)
+    
+    # Create image
+    img = qr.make_image(fill_color="black", back_color="white")
+    
+    # Convert to bytes
+    img_byte_arr = io.BytesIO()
+    img.save(img_byte_arr, format='PNG')
+    img_byte_arr = img_byte_arr.getvalue()
+    
+    # Return image
+    return send_file(
+        io.BytesIO(img_byte_arr),
+        mimetype='image/png'
+    )

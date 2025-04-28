@@ -286,5 +286,28 @@ const api = {
         });
         
         return this.handleResponse(response);
+    },
+
+    // Generate QR code
+    async generateQRCode(text) {
+        try {
+            const response = await fetch('/api/qrcode', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ text: text })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to generate QR code');
+            }
+            
+            const blob = await response.blob();
+            return URL.createObjectURL(blob);
+        } catch (error) {
+            console.error('QR code generation error:', error);
+            throw error;
+        }
     }
 };

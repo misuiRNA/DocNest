@@ -8,6 +8,7 @@ const pages = {
     documents: documentsPage,
     upload: uploadPage,
     query: queryPage,
+    'mobile-query': mobileQueryPage,
     view: viewPage,
     users: usersPage,
     groups: groupsPage,
@@ -16,7 +17,7 @@ const pages = {
 
 // Default route
 const DEFAULT_ROUTE = 'documents';
-const PUBLIC_ROUTES = ['login', 'query'];
+const PUBLIC_ROUTES = ['login', 'query', 'mobile-query'];
 
 // Current route
 let currentRoute = '';
@@ -37,15 +38,18 @@ async function route(path) {
         return;
     }
     
-    // Check if user has permission to access route
-    if (!auth.hasPermission(route)) {
-        // Redirect to login page if not logged in
-        if (!auth.isLoggedIn()) {
-            window.location.hash = 'login';
-        } else {
-            showError('您没有权限访问此页面');
+    // Skip permission check for public routes
+    if (!PUBLIC_ROUTES.includes(route)) {
+        // Check if user has permission to access route
+        if (!auth.hasPermission(route)) {
+            // Redirect to login page if not logged in
+            if (!auth.isLoggedIn()) {
+                window.location.hash = 'login';
+            } else {
+                showError('您没有权限访问此页面');
+            }
+            return;
         }
-        return;
     }
     
     // Parse query params

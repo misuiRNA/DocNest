@@ -128,7 +128,7 @@ const auth = {
     // Check if user has permission to access a route
     hasPermission(route) {
         // Public routes
-        if (['login', 'query'].includes(route)) {
+        if (['login', 'query', 'mobile-query'].includes(route)) {
             return true;
         }
         
