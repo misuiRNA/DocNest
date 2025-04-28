@@ -14,9 +14,9 @@ const uploadPage = {
                 <h2>上传文档</h2>
                 <form id="upload-form">
                     <div class="form-group">
-                        <label for="file_number" class="form-label">文件编号</label>
+                        <label for="file_number" class="form-label">报告编号</label>
                         <input type="text" id="file_number" name="file_number" class="form-input" required>
-                        <small style="color: var(--gray-color);">文件编号只能包含字母、数字和 -_+ 符号</small>
+                        <small style="color: var(--gray-color);">报告编号只能包含字母、数字和 -_+ 符号</small>
                     </div>
                     <div class="form-group">
                         <label for="inspection_date" class="form-label">检测日期</label>
@@ -285,7 +285,7 @@ const uploadPage = {
         
         // Validate form data
         if (!fileNumber) {
-            showError('请输入文件编号');
+            showError('请输入报告编号');
             return;
         }
         
@@ -301,7 +301,7 @@ const uploadPage = {
         
         // Validate file number format
         if (!/^[a-zA-Z0-9\-_+]+$/.test(fileNumber)) {
-            showError('文件编号只能包含字母、数字和 -_+ 符号');
+            showError('报告编号只能包含字母、数字和 -_+ 符号');
             return;
         }
         
@@ -354,7 +354,7 @@ const uploadPage = {
                 
                 <div style="margin: 2rem 0; padding: 1.5rem; background-color: var(--light-color); border-radius: 4px;">
                     <div style="margin-bottom: 1rem;">
-                        <strong>文件编号：</strong> ${document.file_number}
+                        <strong>报告编号：</strong> ${document.file_number}
                     </div>
                     <div style="margin-bottom: 1rem;">
                         <strong>文件名：</strong> ${document.original_filename}

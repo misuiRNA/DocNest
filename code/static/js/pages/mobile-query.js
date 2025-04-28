@@ -15,7 +15,7 @@ const mobileQueryPage = {
                     <h2>文档查询</h2>
                     <form id="query-form">
                         <div class="form-group">
-                            <label for="file_number" class="form-label">文件编号</label>
+                            <label for="file_number" class="form-label">报告编号</label>
                             <input type="text" id="file_number" name="file_number" class="form-input" required>
                         </div>
                         <div class="form-group">
@@ -62,7 +62,7 @@ const mobileQueryPage = {
         
         // Validate form data
         if (!fileNumber) {
-            showError('请输入文件编号');
+            showError('请输入报告编号');
             return;
         }
         

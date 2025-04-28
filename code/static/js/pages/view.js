@@ -14,7 +14,7 @@ const viewPage = {
                 <h2>查看文档</h2>
                 <form id="view-form">
                     <div class="form-group">
-                        <label for="file_number" class="form-label">文件编号</label>
+                        <label for="file_number" class="form-label">报告编号</label>
                         <input type="text" id="file_number" name="file_number" class="form-input" required>
                     </div>
                     <div class="form-group">
@@ -45,7 +45,7 @@ const viewPage = {
         
         // Validate form data
         if (!fileNumber) {
-            showError('请输入文件编号');
+            showError('请输入报告编号');
             return;
         }
         
@@ -84,7 +84,7 @@ const viewPage = {
                 <h2>文档详情</h2>
                 <div style="margin: 2rem 0; padding: 1.5rem; background-color: var(--light-color); border-radius: 4px;">
                     <div style="margin-bottom: 1rem;">
-                        <strong>文件编号：</strong> ${document.file_number}
+                        <strong>报告编号：</strong> ${document.file_number}
                     </div>
                     <div style="margin-bottom: 1rem;">
                         <strong>文件名：</strong> ${document.original_filename}

@@ -14,7 +14,7 @@ const queryPage = {
                 <h2>查询文档</h2>
                 <form id="query-form">
                     <div class="form-group">
-                        <label for="file_number" class="form-label">文件编号</label>
+                        <label for="file_number" class="form-label">报告编号</label>
                         <input type="text" id="file_number" name="file_number" class="form-input" required>
                     </div>
                     <div class="form-group">
@@ -261,7 +261,7 @@ const queryPage = {
         
         // Validate form data
         if (!fileNumber) {
-            showError('请输入文件编号');
+            showError('请输入报告编号');
             return;
         }
         
@@ -303,7 +303,7 @@ const queryPage = {
                 <div style="display: flex; justify-content: ${isLoggedIn ? 'space-between' : 'flex-start'}; align-items: center; padding: 0.5rem;">
                     <div style="display: flex; gap: 2rem;">
                         <div>
-                            <small style="color: var(--text-muted);">文件编号</small>
+                            <small style="color: var(--text-muted);">报告编号</small>
                             <div>${document.file_number}</div>
                         </div>
                         <div>
