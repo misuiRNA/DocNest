@@ -21,7 +21,7 @@ const uploadPage = {
                     <div class="form-group">
                         <label for="inspection_date" class="form-label">检测日期</label>
                         <div class="date-input-container">
-                            <input type="text" id="inspection_date" name="inspection_date" class="form-input" placeholder="YYYY-MM-DD" required>
+                            <input type="text" id="inspection_date" name="inspection_date" class="form-input" placeholder="YYYY-MM-DD" required autocomplete="off">
                             <button type="button" class="calendar-toggle-btn">
                                 <i class="fas fa-calendar-alt"></i>
                             </button>
