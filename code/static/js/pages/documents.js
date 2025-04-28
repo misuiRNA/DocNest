@@ -64,20 +64,20 @@ const documentsPage = {
                             <td>${ui.formatDate(doc.upload_date)}</td>
                             <td>
                                 <div class="table-actions">
-                                    <a href="${doc.view_url}" target="_blank" class="btn" title="查看文档">
-                                        <i class="fas fa-eye"></i>
+                                    <a href="${doc.view_url}" target="_blank" class="btn btn-icon" title="查看文档" style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0; line-height: 36px;">
+                                        <i class="fas fa-file-pdf fa-lg" style="margin: 0;"></i>
                                     </a>
-                                    <button class="btn" title="查看二维码" onclick="documentsPage.showQRCode('${doc.qrcode_url}', '${doc.file_number}')">
-                                        <i class="fas fa-qrcode"></i>
+                                    <button class="btn" title="查看二维码" onclick="documentsPage.showQRCode('${doc.qrcode_url}', '${doc.file_number}')" style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0; line-height: 36px;">
+                                        <i class="fas fa-qrcode" style="margin: 0;"></i>
                                     </button>
                                     ${auth.isAdmin() || auth.getUser().role === 'group_admin' ? `
-                                    <button class="btn ${doc.is_visible ? 'btn-success' : 'btn-warning'}" title="${doc.is_visible ? '隐藏文档' : '显示文档'}" onclick="documentsPage.toggleVisibility(${doc.id}, ${doc.is_visible})">
-                                        <i class="fas ${doc.is_visible ? 'fa-eye' : 'fa-eye-slash'}"></i>
+                                    <button class="btn ${doc.is_visible ? 'btn-success' : 'btn-warning'}" title="${doc.is_visible ? '隐藏文档' : '显示文档'}" onclick="documentsPage.toggleVisibility(${doc.id}, ${doc.is_visible})" style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0; line-height: 36px;">
+                                        <i class="fas ${doc.is_visible ? 'fa-eye' : 'fa-eye-slash'}" style="margin: 0;"></i>
                                     </button>
                                     ` : ''}
                                     ${auth.isAdmin() || auth.getUser().role === 'group_admin' ? `
-                                    <button class="btn btn-danger" title="删除文档" onclick="documentsPage.deleteDocument(${doc.id})">
-                                        <i class="fas fa-trash"></i>
+                                    <button class="btn btn-danger" title="删除文档" onclick="documentsPage.deleteDocument(${doc.id})" style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0; line-height: 36px;">
+                                        <i class="fas fa-trash" style="margin: 0;"></i>
                                     </button>
                                     ` : ''}
                                 </div>
